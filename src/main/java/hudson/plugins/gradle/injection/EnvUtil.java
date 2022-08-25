@@ -1,10 +1,6 @@
 package hudson.plugins.gradle.injection;
 
 import hudson.EnvVars;
-import hudson.FilePath;
-
-import java.io.IOException;
-import java.io.InputStream;
 
 public class EnvUtil {
 

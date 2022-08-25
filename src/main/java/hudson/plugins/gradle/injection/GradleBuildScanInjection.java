@@ -8,7 +8,7 @@ import hudson.remoting.VirtualChannel;
 import java.io.IOException;
 import java.util.logging.Logger;
 
-import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
+import static hudson.plugins.gradle.injection.CopyUtil.copyClasspathResourceToNode;
 
 public class GradleBuildScanInjection implements BuildScanInjection {
 
@@ -71,7 +71,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
                 }
 
                 LOGGER.fine("copy init script file");
-                copyResourceToNode(gradleInitScriptFile, RESOURCE_INIT_SCRIPT_GRADLE);
+                copyClasspathResourceToNode(gradleInitScriptFile, RESOURCE_INIT_SCRIPT_GRADLE);
             }
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);

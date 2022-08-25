@@ -6,6 +6,7 @@ import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import jenkins.model.Jenkins;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,8 +14,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
-import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 
 public class MavenBuildScanInjection implements BuildScanInjection {
 
@@ -38,11 +37,13 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     private static final String GE_ALLOW_UNTRUSTED_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER";
     private static final String GE_URL_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
     private static final String GE_CCUD_VERSION_VAR = "JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION";
+    private static final String GE_EXTENSION_VERSION_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION";
 
+    private static final String GE_EXTENSION_REMOTE_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_REMOTE";
 
     @Override
     public String getActivationEnvironmentVariableName() {
-        return "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION";
+        return GE_EXTENSION_VERSION_VAR;
     }
 
     @Override
@@ -95,8 +96,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
 
     private void removeMavenExtension(Node node, FilePath rootPath) {
         try {
-            deleteResourceFromAgent(GE_MVN_LIB_NAME, rootPath);
-            deleteResourceFromAgent(CCUD_LIB_NAME, rootPath);
+            deleteJenkinsLibsFromAgent(rootPath);
             MAVEN_OPTS_SETTER.remove(node);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
@@ -105,36 +105,64 @@ public class MavenBuildScanInjection implements BuildScanInjection {
 
     private String constructExtClasspath(FilePath rootPath, boolean isUnix) throws IOException, InterruptedException {
         List<FilePath> libs = new LinkedList<>();
-        libs.add(copyResourceToAgent(GE_MVN_LIB_NAME, rootPath));
+        libs.add(copyResourceToAgent(mavenExtensionLibrary(), rootPath));
         if (getGlobalEnvVar(GE_CCUD_VERSION_VAR) != null) {
             libs.add(copyResourceToAgent(CCUD_LIB_NAME, rootPath));
         }
         return libs.stream().map(FilePath::getRemote).collect(Collectors.joining(getDelimiter(isUnix)));
     }
 
-    private String getDelimiter(boolean isUnix) {
+    // TODO: Just a POC, needs to be rewritten
+    private String mavenExtensionLibrary() {
+        if (getGlobalEnvVar(GE_EXTENSION_REMOTE_VAR) == null) {
+            return GE_MVN_LIB_NAME;
+        }
+
+        String version = StringUtils.trimToNull(getGlobalEnvVar(GE_EXTENSION_VERSION_VAR));
+        String mavenExtensionLibrary =
+            version != null ? String.format("gradle-enterprise-maven-extension-%s.jar", version) : GE_MVN_LIB_NAME;
+
+        LOGGER.info("Resolved gradle enterprise extension library: " + mavenExtensionLibrary);
+
+        return mavenExtensionLibrary;
+    }
+
+    private static boolean isMavenExtension(String resourceName) {
+        return StringUtils.startsWith(resourceName, "gradle-enterprise-maven-extension");
+    }
+
+    private static boolean isEmbeddedMavenExtension(String mavenExtension) {
+        return GE_MVN_LIB_NAME.equalsIgnoreCase(mavenExtension);
+    }
+
+    private static String getDelimiter(boolean isUnix) {
         return isUnix ? ":" : ";";
     }
 
     private String getGlobalEnvVar(String varName) {
-        EnvironmentVariablesNodeProperty envProperty = Jenkins.get().getGlobalNodeProperties()
-                .get(EnvironmentVariablesNodeProperty.class);
+        EnvironmentVariablesNodeProperty envProperty =
+            Jenkins.get().getGlobalNodeProperties().get(EnvironmentVariablesNodeProperty.class);
         return envProperty.getEnvVars().get(varName);
     }
 
-    private String asSystemProperty(String sysProp, String value) {
+    private static String asSystemProperty(String sysProp, String value) {
         return "-D" + sysProp + "=" + value;
     }
 
     private FilePath copyResourceToAgent(String resourceName, FilePath rootPath) throws IOException, InterruptedException {
         FilePath lib = rootPath.child(LIB_DIR_PATH).child(resourceName);
-        copyResourceToNode(lib, resourceName);
+
+        if (isMavenExtension(resourceName) && !isEmbeddedMavenExtension(resourceName)) {
+            CopyUtil.copyMavenCentralResourceToNode(lib, resourceName);
+        } else {
+            CopyUtil.copyClasspathResourceToNode(lib, resourceName);
+        }
+
         return lib;
     }
 
-    private void deleteResourceFromAgent(String resourceName, FilePath rootPath) throws IOException, InterruptedException {
-        FilePath lib = rootPath.child(LIB_DIR_PATH).child(resourceName);
-        lib.delete();
+    private void deleteJenkinsLibsFromAgent(FilePath rootPath) throws IOException, InterruptedException {
+        FilePath libDir = rootPath.child(LIB_DIR_PATH);
+        libDir.deleteRecursive();
     }
-
 }

@@ -13,9 +13,9 @@ group = 'org.jenkins-ci.plugins'
 description = 'This plugin adds Gradle support to Jenkins'
 
 ext {
-  coreBaseVersion = '2.138'
-  corePatchVersion = '4'
-  coreBomVersion = '3'
+  coreBaseVersion = '2.289'
+  corePatchVersion = '3'
+  coreBomVersion = '1500.ve4d05cd32975'
 }
 
 jenkinsPlugin {
@@ -71,6 +71,8 @@ dependencies {
   implementation 'org.jenkins-ci.plugins.workflow:workflow-durable-task-step'
   implementation 'org.jenkins-ci.plugins.workflow:workflow-step-api'
 
+  implementation 'org.apache.commons:commons-lang3:3.12.0'
+
   includedLibs 'com.gradle:gradle-enterprise-maven-extension:1.14.3'
   includedLibs 'com.gradle:common-custom-user-data-maven-extension:1.10.1'
 
@@ -87,6 +89,7 @@ dependencies {
   testRuntimeOnly "org.jenkins-ci.main:jenkins-war:${coreBaseVersion}"
 
   jenkinsServer 'org.jenkins-ci.plugins:git'
+//  jenkinsServer 'org.jenkins-ci.plugins:matrix-project:1.20'
 }
 
 if (project.hasProperty('maxParallelForks')) {

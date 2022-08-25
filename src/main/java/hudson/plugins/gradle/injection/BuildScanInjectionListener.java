@@ -33,7 +33,7 @@ public class BuildScanInjectionListener extends ComputerListener {
     public void onOnline(Computer c, TaskListener listener) {
         try {
             EnvVars envGlobal = c.buildEnvironment(listener);
-            if(isInjectionEnabled(envGlobal)) {
+            if (isInjectionEnabled(envGlobal)) {
                 try {
                     EnvVars envComputer = c.getEnvironment();
 
@@ -53,7 +53,7 @@ public class BuildScanInjectionListener extends ComputerListener {
                 .get(EnvironmentVariablesNodeProperty.class);
         EnvVars envGlobal = envProperty != null ? envProperty.getEnvVars() : null;
 
-        if(isInjectionEnabled(envGlobal)) {
+        if (isInjectionEnabled(envGlobal)) {
             for (Computer c : Jenkins.get().getComputers()) {
                 try {
                     final EnvVars envComputer = c.getEnvironment();
