@@ -36,8 +36,6 @@ class BuildScanInjectionMavenIntegrationTest extends AbstractIntegrationTest {
         hasBuildScanPublicationAttempt(log)
     }
 
-
-
     def 'build scan is published without GE plugin with Maven plugin'() {
         given:
         setupBuildInjection()
@@ -153,7 +151,8 @@ node {
     }
 
     private static boolean hasJarInMavenExt(String log, String jar) {
-        (log =~ /MAVEN_OPTS=.*-Dmaven\.ext\.class\.path=.*${jar}-.*\.jar/).find()
+        String version = new File(getClass().getResource("/versions/${jar}-version.txt").toURI()).getText()
+        (log =~ /MAVEN_OPTS=.*-Dmaven\.ext\.class\.path=.*${jar}-${version}\.jar/).find()
     }
 
     private static boolean hasBuildScanPublicationAttempt(String log) {

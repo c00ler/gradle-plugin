@@ -32,13 +32,13 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         try {
             String initScriptDirectory = getInitScriptDirectory(envGlobal, envComputer);
 
-            if (isOn(envGlobal)) {
+            if (injectionEnabled(envGlobal)) {
                 copyInitScript(node.getChannel(), initScriptDirectory);
             } else {
                 removeInitScript(node.getChannel(), initScriptDirectory);
             }
         } catch (IllegalStateException e) {
-            if (isOn(envGlobal)) {
+            if (injectionEnabled(envGlobal)) {
                 LOGGER.warning("Error: " + e.getMessage());
             }
         }

@@ -33,13 +33,13 @@ public class BuildScanInjectionListener extends ComputerListener {
     public void onOnline(Computer c, TaskListener listener) {
         try {
             EnvVars envGlobal = c.buildEnvironment(listener);
-            if(isInjectionEnabled(envGlobal)) {
+            if (isInjectionEnabled(envGlobal)) {
                 try {
                     EnvVars envComputer = c.getEnvironment();
 
                     inject(c, envGlobal, envComputer);
                 } catch (IOException | InterruptedException e) {
-                    LOGGER.info("Error processing scan injection - " + e.getMessage());
+                    LOGGER.info("Error processing scan injection: " + e.getMessage());
                 }
             }
         } catch (IOException | InterruptedException e) {
