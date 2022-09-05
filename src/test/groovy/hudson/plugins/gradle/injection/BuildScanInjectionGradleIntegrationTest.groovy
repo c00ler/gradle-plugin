@@ -44,13 +44,12 @@ class BuildScanInjectionGradleIntegrationTest extends AbstractIntegrationTest {
         project.buildersList.add(new Gradle(tasks: 'hello', gradleName: gradleVersion, switches: "--no-daemon"))
 
         when:
-        enableBuildInjection(agent, gradleVersion)
+        // first build to download Gradle
         def firstRun = j.buildAndAssertSuccess(project)
 
         then:
         println JenkinsRule.getLog(firstRun)
-        j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, firstRun)
-        assertPluginsResolvedFrom(pluginRepositoryUrl, firstRun)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, firstRun)
 
         when:
         enableBuildInjection(agent, gradleVersion, proxyAddress)
@@ -59,15 +58,11 @@ class BuildScanInjectionGradleIntegrationTest extends AbstractIntegrationTest {
         then:
         println JenkinsRule.getLog(secondRun)
         j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, secondRun)
-        assertPluginsResolvedFrom(proxyAddress, secondRun)
+        j.assertLogContains(
+            "Gradle Enterprise plugins resolution: ${StringUtils.removeEnd(proxyAddress.toString(), "/")}", secondRun)
 
         cleanup:
         proxy.close()
-    }
-
-    private void assertPluginsResolvedFrom(URI address, Run run) {
-        j.assertLogContains(
-            "Gradle Enterprise plugins resolution: ${StringUtils.removeEnd(address.toString(), "/")}", run)
     }
 
     def 'Gradle #gradleVersion - manual step - conditional build scan publication'() {
