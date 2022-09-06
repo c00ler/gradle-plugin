@@ -14,33 +14,24 @@ import org.junit.Before;
 import org.junit.Test;
 import org.openqa.selenium.By;
 
-import java.net.URI;
-
-import static hudson.plugins.gradle.MavenInjectionTest.GE_TEST_INSTANCE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.jenkinsci.test.acceptance.Matchers.containsString;
 
-@WithEnvVariable(GE_TEST_INSTANCE)
 @WithPlugins("gradle")
 public class MavenInjectionTest extends AbstractAcceptanceTest {
 
-    public static final String GE_TEST_INSTANCE = "GRADLE_ENTERPRISE_TEST_INSTANCE";
-
     private static final String MAVEN_VERSION = "3.8.6";
-
-    private URI geUrl;
 
     @Before
     public void beforeEach() {
-        geUrl = URI.create(System.getenv(GE_TEST_INSTANCE));
-
         MavenInstallation.installMaven(jenkins, MAVEN_VERSION, MAVEN_VERSION);
 
         addGlobalEnvironmentVariables(
             "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION", "true",
-            "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION", "1.15.1",
-            "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL", geUrl.toString()
+            "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION", "1.15.1"
+            // TODO: Uncomment after updating embedded maven extension version to 1.15.x
+            // , "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL", "https://scans.gradle.com"
         );
     }
 
@@ -124,8 +115,7 @@ public class MavenInjectionTest extends AbstractAcceptanceTest {
 
     private void assertBuildScanPublished(Build build) {
         String output = build.getConsole();
-        boolean hasCacheHit = output.contains("[INFO] Loaded from the build cache");
-        assertThat(output, containsString("[INFO] 3 goals, %d executed", hasCacheHit ? 2 : 3));
-        assertThat(output, containsString("[INFO] Publishing build scan..." + System.lineSeparator() + "[INFO] %s/s/", geUrl));
+        assertThat(output, containsString("[INFO] 3 goals, 3 executed"));
+        assertThat(output, containsString("[INFO] Publishing build scan..." + System.lineSeparator() + "[INFO] https://gradle.com/s/"));
     }
 }
