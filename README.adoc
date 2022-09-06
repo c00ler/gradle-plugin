@@ -117,7 +117,7 @@ The following table lists all available configuration options.
 |JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION|Both|Enable the feature if set.
 |JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL|Both|The URL of the Gradle Enterprise server to publish Build Scans to.
 |JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER|Both|Whether to allow publishing to a server with a self-signed certificate. Defaults to `false`.
-|JENKINSGRADLEPLUGIN_GRADLE_PLUGIN_REPOSITORY_URL|Gradle|The URL of the repository to use when resolving the GE and CCUD plugins. Required if Jenkins agents are not able to access the Gradle Plugin Portal.
+|JENKINSGRADLEPLUGIN_GRADLE_PLUGIN_REPOSITORY_URL|Gradle|The URL of the repository to use when resolving the Gradle Enterprise Gradle plugin and the Common Custom User Data Gradle plugin. Required if Jenkins agents are not able to access the Gradle Plugin Portal at https://plugins.gradle.org.
 |JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION|Gradle|Enables injection for Gradle builds and defines which version of the https://plugins.gradle.org/plugin/com.gradle.enterprise[Gradle Enterprise Gradle plugin] to use.
 |JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION|Gradle|Defines which version of the https://plugins.gradle.org/plugin/com.gradle.common-custom-user-data-gradle-plugin[Common Custom User Data Gradle Plugin] to use.
 |JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION|Maven|Enables injection for Maven builds and defines which version of the https://docs.gradle.com/enterprise/maven-extension[Gradle Enterprise Maven extension] to use.
