@@ -67,6 +67,6 @@ public class BuildScanInjectionListener extends ComputerListener {
     }
 
     private static boolean isInjectionEnabled(EnvVars env) {
-        return EnvUtil.getEnv(env, FEATURE_TOGGLE_INJECTION) != null;
+        return EnvUtil.isSet(env, FEATURE_TOGGLE_INJECTION);
     }
 }
