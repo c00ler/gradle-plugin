@@ -4,6 +4,7 @@ import hudson.EnvVars;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.TaskListener;
+import hudson.model.labels.LabelAtom;
 import hudson.slaves.ComputerListener;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import jenkins.model.Jenkins;
@@ -11,6 +12,7 @@ import jenkins.model.Jenkins;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 @Extension
@@ -33,6 +35,7 @@ public class BuildScanInjectionListener extends ComputerListener {
     public void onOnline(Computer c, TaskListener listener) {
         try {
             EnvVars envGlobal = c.buildEnvironment(listener);
+            Set<LabelAtom> labels = c.getAssignedLabels();
             if (isInjectionEnabled(envGlobal)) {
                 try {
                     EnvVars envComputer = c.getEnvironment();

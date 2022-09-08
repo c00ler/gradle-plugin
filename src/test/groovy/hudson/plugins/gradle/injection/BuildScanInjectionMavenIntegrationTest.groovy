@@ -1,8 +1,6 @@
 package hudson.plugins.gradle.injection
 
 import hudson.EnvVars
-import hudson.model.Label
-import hudson.plugins.gradle.AbstractIntegrationTest
 import hudson.slaves.DumbSlave
 import hudson.slaves.EnvironmentVariablesNodeProperty
 import hudson.slaves.NodeProperty
@@ -16,13 +14,13 @@ import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jvnet.hudson.test.JenkinsRule
 import org.jvnet.hudson.test.ToolInstallations
 
-class BuildScanInjectionMavenIntegrationTest extends AbstractIntegrationTest {
+class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTest {
 
     def pomFile = '<?xml version="1.0" encoding="UTF-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>my-pom</artifactId><version>0.1-SNAPSHOT</version><packaging>pom</packaging><name>my-pom</name><description>my-pom</description></project>'
 
     def 'build scan is published without GE plugin with simple pipeline'() {
         given:
-        setupBuildInjection()
+        createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
 
@@ -36,9 +34,36 @@ class BuildScanInjectionMavenIntegrationTest extends AbstractIntegrationTest {
         hasBuildScanPublicationAttempt(log)
     }
 
+    def 'build scan is published without GE plugin with simple pipeline 2'() {
+        given:
+        def slave = createSlave()
+        def pipelineJob = j.createProject(WorkflowJob)
+        pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
+
+        when:
+        def build = j.buildAndAssertSuccess(pipelineJob)
+
+        then:
+        def log = JenkinsRule.getLog(build)
+        hasJarInMavenExt(log, 'gradle-enterprise-maven-extension')
+        !hasJarInMavenExt(log, 'common-custom-user-data-maven-extension')
+        hasBuildScanPublicationAttempt(log)
+
+        when:
+        disableGlobalBuildInjection(slave)
+        def secondBuild = j.buildAndAssertSuccess(pipelineJob)
+
+        then:
+        def newLog = JenkinsRule.getLog(secondBuild)
+        !hasJarInMavenExt(newLog, 'gradle-enterprise-maven-extension')
+        !hasJarInMavenExt(newLog, 'common-custom-user-data-maven-extension')
+        !hasBuildScanPublicationAttempt(newLog)
+
+    }
+
     def 'build scan is published without GE plugin with Maven plugin'() {
         given:
-        setupBuildInjection()
+        createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         String mavenInstallationName = setupMavenInstallation()
 
@@ -74,7 +99,7 @@ node {
     def 'build scan is published with CCUD extension applied'() {
         given:
         addGlobalEnvVar('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.10.1')
-        setupBuildInjection()
+        createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
 
@@ -91,7 +116,7 @@ node {
     def 'build scan is not published when global MAVEN_OPTS is set'() {
         given:
         addGlobalEnvVar('MAVEN_OPTS', '-Dfoo=bar')
-        setupBuildInjection()
+        createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
 
@@ -135,11 +160,14 @@ node {
         mavenInstallationName
     }
 
-    private DumbSlave setupBuildInjection() {
-        EnvVars env = addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'on')
-        env = addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
-        DumbSlave slave = j.createOnlineSlave(Label.get("foo"), env)
-        slave
+    private DumbSlave createSlave() {
+        enableInjection()
+        createSlave('foo')
+    }
+
+    private void enableInjection() {
+        addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+        addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
     }
 
     private EnvVars addGlobalEnvVar(String key, String value) {
@@ -159,4 +187,9 @@ node {
         (log =~ /The build scan was not published due to a configuration problem/).find()
     }
 
+    private void disableGlobalBuildInjection(DumbSlave slave) {
+        disableBuildInjection(slave) {
+            remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
+        }
+    }
 }

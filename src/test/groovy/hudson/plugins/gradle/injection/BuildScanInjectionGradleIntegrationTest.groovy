@@ -2,8 +2,6 @@ package hudson.plugins.gradle.injection
 
 import hudson.EnvVars
 import hudson.model.FreeStyleProject
-import hudson.model.Label
-import hudson.plugins.gradle.AbstractIntegrationTest
 import hudson.plugins.gradle.Gradle
 import hudson.slaves.DumbSlave
 import hudson.slaves.EnvironmentVariablesNodeProperty
@@ -15,55 +13,55 @@ import org.jvnet.hudson.test.JenkinsRule
 import spock.lang.Unroll
 
 @Unroll
-class BuildScanInjectionGradleIntegrationTest extends AbstractIntegrationTest {
+class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTest {
 
-  private static final String MSG_INIT_SCRIPT_APPLIED = "Connection to Gradle Enterprise: http://foo.com"
+    private static final String MSG_INIT_SCRIPT_APPLIED = "Connection to Gradle Enterprise: http://foo.com"
 
-  private static final List<String> GRADLE_VERSIONS = ['4.10.3', '5.6.4', '6.9.2', '7.5.1']
+    private static final List<String> GRADLE_VERSIONS = ['4.10.3', '5.6.4', '6.9.2', '7.5.1']
 
-  def 'Gradle #gradleVersion - manual step - conditional build scan publication'() {
-    given:
-    gradleInstallationRule.gradleVersion = gradleVersion
-    gradleInstallationRule.addInstallation()
+    def 'Gradle #gradleVersion - manual step - conditional build scan publication'() {
+        given:
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
 
-    DumbSlave slave = createSlave()
+        DumbSlave slave = createSlave()
 
-    FreeStyleProject p = j.createFreeStyleProject()
-    p.setAssignedNode(slave)
+        FreeStyleProject p = j.createFreeStyleProject()
+        p.setAssignedNode(slave)
 
-    p.buildersList.add(buildScriptBuilder())
-    p.buildersList.add(new Gradle(tasks: 'hello', gradleName: gradleVersion, switches: "--no-daemon"))
+        p.buildersList.add(buildScriptBuilder())
+        p.buildersList.add(new Gradle(tasks: 'hello', gradleName: gradleVersion, switches: "--no-daemon"))
 
-    when:
-    // first build to download Gradle
-    def build = j.buildAndAssertSuccess(p)
+        when:
+        // first build to download Gradle
+        def build = j.buildAndAssertSuccess(p)
 
-    then:
-    println JenkinsRule.getLog(build)
-    j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build)
+        then:
+        println JenkinsRule.getLog(build)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build)
 
-    when:
-    enableBuildInjection(slave, gradleVersion)
-    def build2 = j.buildAndAssertSuccess(p)
+        when:
+        enableBuildInjection(slave, gradleVersion)
+        def build2 = j.buildAndAssertSuccess(p)
 
-    then:
-    println JenkinsRule.getLog(build2)
-    j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, build2)
+        then:
+        println JenkinsRule.getLog(build2)
+        j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, build2)
 
-    where:
-    gradleVersion << GRADLE_VERSIONS
-  }
+        where:
+        gradleVersion << GRADLE_VERSIONS
+    }
 
-  def 'Gradle #gradleVersion - pipeline - conditional build scan publication'() {
-    given:
-    gradleInstallationRule.gradleVersion = gradleVersion
-    gradleInstallationRule.addInstallation()
+    def 'Gradle #gradleVersion - pipeline - conditional build scan publication'() {
+        given:
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
 
-    DumbSlave slave = createSlave()
+        DumbSlave slave = createSlave()
 
-    def pipelineJob = j.createProject(WorkflowJob)
+        def pipelineJob = j.createProject(WorkflowJob)
 
-    pipelineJob.setDefinition(new CpsFlowDefinition("""
+        pipelineJob.setDefinition(new CpsFlowDefinition("""
     stage('Build') {
       node('foo') {
         withGradle {
@@ -80,133 +78,116 @@ class BuildScanInjectionGradleIntegrationTest extends AbstractIntegrationTest {
     }
 """, false))
 
-    when:
-    // first build to download Gradle
-    def build = j.buildAndAssertSuccess(pipelineJob)
+        when:
+        // first build to download Gradle
+        def build = j.buildAndAssertSuccess(pipelineJob)
 
-    then:
-    println JenkinsRule.getLog(build)
-    j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build)
+        then:
+        println JenkinsRule.getLog(build)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build)
 
-    when:
-    enableBuildInjection(slave, gradleVersion)
-    def build2 = j.buildAndAssertSuccess(pipelineJob)
+        when:
+        enableBuildInjection(slave, gradleVersion)
+        def build2 = j.buildAndAssertSuccess(pipelineJob)
 
-    then:
-    println JenkinsRule.getLog(build2)
-    j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, build2)
+        then:
+        println JenkinsRule.getLog(build2)
+        j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, build2)
 
-    where:
-    gradleVersion << GRADLE_VERSIONS
-  }
+        where:
+        gradleVersion << GRADLE_VERSIONS
+    }
 
-  def 'init script is deleted without JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION set'() {
-    given:
-    gradleInstallationRule.gradleVersion = gradleVersion
-    gradleInstallationRule.addInstallation()
+    def 'init script is deleted without JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION set'() {
+        given:
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
 
-    DumbSlave slave = createSlave()
+        DumbSlave slave = createSlave()
 
-    File initScript = new File(getGradleHome(slave, gradleVersion) + "/init.d/init-build-scan.gradle")
+        File initScript = new File(getGradleHome(slave, gradleVersion) + "/init.d/init-build-scan.gradle")
 
-    expect:
-    !initScript.exists()
+        expect:
+        !initScript.exists()
 
-    when:
-    enableBuildInjection(slave, gradleVersion)
+        when:
+        enableBuildInjection(slave, gradleVersion)
 
-    then:
-    initScript.exists()
+        then:
+        initScript.exists()
 
-    when:
-    disableBuildInjection(slave, gradleVersion)
+        when:
+        disableBuildInjection(slave, gradleVersion)
 
-    then:
-    initScript.exists()
+        then:
+        initScript.exists()
 
-    when:
-    turnOffBuildInjection(slave, gradleVersion)
+        when:
+        turnOffBuildInjection(slave, gradleVersion)
 
-    then:
-    !initScript.exists()
+        then:
+        !initScript.exists()
 
-    where:
-    gradleVersion << GRADLE_VERSIONS
-  }
+        where:
+        gradleVersion << GRADLE_VERSIONS
+    }
 
-  private static CreateFileBuilder buildScriptBuilder() {
-    return new CreateFileBuilder('build.gradle', """
+    private static CreateFileBuilder buildScriptBuilder() {
+        return new CreateFileBuilder('build.gradle', """
 task hello {
   doLast {
     println 'Hello!'
   }
 }
 """)
-  }
+    }
 
-  private DumbSlave createSlave() {
-    NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
-    EnvVars env = nodeProperty.getEnvVars()
+    private DumbSlave createSlave() {
+        createSlave('foo') {
+            put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
+        }
+    }
 
-    env.put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
-    env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
+    private String getGradleHome(DumbSlave slave, String gradleVersion) {
+        return slave.getRemoteFS() + "/tools/hudson.plugins.gradle.GradleInstallation/" + gradleVersion
+    }
 
-    DumbSlave slave = j.createOnlineSlave(Label.get("foo"), env)
+    private void enableBuildInjection(DumbSlave slave, String gradleVersion) {
+        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
+        EnvVars env = nodeProperty.getEnvVars()
 
-    return slave
-  }
+        // we override the location of the init script to a workspace internal folder to allow parallel test runs
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+        env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION', '3.10.1')
+        env.put('GRADLE_OPTS', '-Dscan.uploadInBackground=false')
 
-  private String getGradleHome(DumbSlave slave, String gradleVersion) {
-    return slave.getRemoteFS() + "/tools/hudson.plugins.gradle.GradleInstallation/" + gradleVersion
-  }
+        j.jenkins.globalNodeProperties.add(nodeProperty)
 
-  private void enableBuildInjection(DumbSlave slave, String gradleVersion) {
-    NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
-    EnvVars env = nodeProperty.getEnvVars()
+        // sync changes
+        restartSlave(slave)
+    }
 
-    // we override the location of the init script to a workspace internal folder to allow parallel test runs
-    env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION','on')
-    env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
-    env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION', '3.10.1')
-    env.put('GRADLE_OPTS','-Dscan.uploadInBackground=false')
+    private void disableBuildInjection(DumbSlave slave, String gradleVersion) {
+        disableBuildInjection(slave) {
+            remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
+            put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
+        }
+    }
 
-    j.jenkins.globalNodeProperties.add(nodeProperty)
+    private void turnOffBuildInjection(DumbSlave slave, String gradleVersion) {
+        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
+        EnvVars env = nodeProperty.getEnvVars()
 
-    // sync changes
-    restartSlave(slave)
-  }
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+        env.remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION')
+        env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
 
-  private void disableBuildInjection(DumbSlave slave, String gradleVersion) {
-    NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
-    EnvVars env = nodeProperty.getEnvVars()
+        j.jenkins.globalNodeProperties.clear()
+        j.jenkins.globalNodeProperties.add(nodeProperty)
 
-    env.remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
-    env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
-
-    j.jenkins.globalNodeProperties.clear()
-    j.jenkins.globalNodeProperties.add(nodeProperty)
-
-    // sync changes
-    restartSlave(slave)
-  }
-
-  private void turnOffBuildInjection(DumbSlave slave, String gradleVersion) {
-    NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
-    EnvVars env = nodeProperty.getEnvVars()
-
-    env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'on')
-    env.remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION')
-    env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
-
-    j.jenkins.globalNodeProperties.clear()
-    j.jenkins.globalNodeProperties.add(nodeProperty)
-
-    // sync changes
-    restartSlave(slave)
-  }
-
-  private void restartSlave(DumbSlave slave) {
-    j.disconnectSlave(slave)
-    j.waitOnline(slave)
-  }
+        // sync changes
+        restartSlave(slave)
+    }
 }
