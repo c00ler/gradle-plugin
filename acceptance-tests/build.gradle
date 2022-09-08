@@ -44,7 +44,7 @@ dependencies {
     pluginsCollection project(path: ':', configuration: 'pluginsCollectionDist')
 }
 
-def testDependenciesDir = new File("${buildDir}", "test-dependencies")
+def testDependenciesDir = layout.buildDirectory.dir('test-dependencies')
 
 def copyTestDependencies = tasks.create("copyTestDependencies", Copy) {
     from configurations.pluginsCollection
