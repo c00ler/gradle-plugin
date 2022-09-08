@@ -1,11 +1,13 @@
 package hudson.plugins.gradle.injection
 
 import hudson.EnvVars
+import hudson.FilePath
 import hudson.model.FreeStyleProject
 import hudson.plugins.gradle.Gradle
 import hudson.slaves.DumbSlave
 import hudson.slaves.EnvironmentVariablesNodeProperty
 import hudson.slaves.NodeProperty
+import org.apache.commons.lang3.StringUtils
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition
 import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jvnet.hudson.test.CreateFileBuilder
@@ -18,6 +20,48 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
     private static final String MSG_INIT_SCRIPT_APPLIED = "Connection to Gradle Enterprise: http://foo.com"
 
     private static final List<String> GRADLE_VERSIONS = ['4.10.3', '5.6.4', '6.9.2', '7.5.1']
+
+    def 'uses custom plugin repository'() {
+        given:
+        // Gradle 7.x requires allowInsecureProtocol
+        def gradleVersion = '6.9.2'
+        def pluginRepositoryUrl = URI.create("https://plugins.gradle.org/m2/")
+
+        def proxy = new ExternalRepoProxy(pluginRepositoryUrl)
+        def proxyAddress = proxy.address
+
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
+
+        DumbSlave agent = createSlave()
+
+        FreeStyleProject project = j.createFreeStyleProject()
+        project.setAssignedNode(agent)
+
+        project.buildersList.add(buildScriptBuilder())
+        project.buildersList.add(new Gradle(tasks: 'hello', gradleName: gradleVersion, switches: "--no-daemon"))
+
+        when:
+        // first build to download Gradle
+        def firstRun = j.buildAndAssertSuccess(project)
+
+        then:
+        println JenkinsRule.getLog(firstRun)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, firstRun)
+
+        when:
+        enableBuildInjection(agent, gradleVersion, proxyAddress)
+        def secondRun = j.buildAndAssertSuccess(project)
+
+        then:
+        println JenkinsRule.getLog(secondRun)
+        j.assertLogContains(MSG_INIT_SCRIPT_APPLIED, secondRun)
+        j.assertLogContains(
+            "Gradle Enterprise plugins resolution: ${StringUtils.removeEnd(proxyAddress.toString(), "/")}", secondRun)
+
+        cleanup:
+        proxy.close()
+    }
 
     def 'Gradle #gradleVersion - manual step - conditional build scan publication'() {
         given:
@@ -132,6 +176,55 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         gradleVersion << GRADLE_VERSIONS
     }
 
+    def 'Injection is enabled and disabled based on node labels'() {
+        given:
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
+
+        DumbSlave slave = createSlave()
+
+        File initScript = new File(getGradleHome(slave, gradleVersion) + "/init.d/init-build-scan.gradle")
+
+        expect:
+        !initScript.exists()
+
+        when:
+        enableBuildInjection(slave, gradleVersion)
+
+        then:
+        initScript.exists()
+
+        when:
+        withAdditionalGlobalEnvVars { put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, 'bar,foo') }
+        restartSlave(slave)
+
+        then:
+        !initScript.exists()
+
+        when:
+        withAdditionalGlobalEnvVars {
+            put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
+            put(GradleBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz,foo')
+        }
+        restartSlave(slave)
+
+        then:
+        initScript.exists()
+
+        when:
+        withAdditionalGlobalEnvVars {
+            put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
+            put(GradleBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz')
+        }
+        restartSlave(slave)
+
+        then:
+        !initScript.exists()
+
+        where:
+        gradleVersion << GRADLE_VERSIONS
+    }
+
     private static CreateFileBuilder buildScriptBuilder() {
         return new CreateFileBuilder('build.gradle', """
 task hello {
@@ -143,26 +236,28 @@ task hello {
     }
 
     private DumbSlave createSlave() {
-        createSlave('foo') {
+        return createSlave('foo') {
             put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
             put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
         }
     }
 
-    private String getGradleHome(DumbSlave slave, String gradleVersion) {
+    private static String getGradleHome(DumbSlave slave, String gradleVersion) {
         return slave.getRemoteFS() + "/tools/hudson.plugins.gradle.GradleInstallation/" + gradleVersion
     }
 
-    private void enableBuildInjection(DumbSlave slave, String gradleVersion) {
+    private void enableBuildInjection(DumbSlave slave, String gradleVersion, URI repositoryAddress = null) {
         NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
         EnvVars env = nodeProperty.getEnvVars()
 
         // we override the location of the init script to a workspace internal folder to allow parallel test runs
-        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'on')
         env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
         env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION', '3.10.1')
         env.put('GRADLE_OPTS', '-Dscan.uploadInBackground=false')
-
+        if (repositoryAddress != null) {
+            env.put('JENKINSGRADLEPLUGIN_GRADLE_PLUGIN_REPOSITORY_URL', repositoryAddress.toASCIIString())
+        }
         j.jenkins.globalNodeProperties.add(nodeProperty)
 
         // sync changes
@@ -170,17 +265,24 @@ task hello {
     }
 
     private void disableBuildInjection(DumbSlave slave, String gradleVersion) {
-        disableBuildInjection(slave) {
-            remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
-            put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
-        }
+        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
+        EnvVars env = nodeProperty.getEnvVars()
+
+        env.remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
+        env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
+
+        j.jenkins.globalNodeProperties.clear()
+        j.jenkins.globalNodeProperties.add(nodeProperty)
+
+        // sync changes
+        restartSlave(slave)
     }
 
     private void turnOffBuildInjection(DumbSlave slave, String gradleVersion) {
         NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
         EnvVars env = nodeProperty.getEnvVars()
 
-        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'on')
         env.remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION')
         env.put("JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME", getGradleHome(slave, gradleVersion))
 

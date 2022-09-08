@@ -17,6 +17,9 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME";
     private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME";
 
+    static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_DISABLED_NODES";
+    static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_ENABLED_NODES";
+
     private static final String RESOURCE_INIT_SCRIPT_GRADLE = "init-script.gradle";
     private static final String INIT_DIR = "init.d";
     private static final String GRADLE_DIR = ".gradle";
@@ -32,11 +35,31 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         try {
             String initScriptDirectory = getInitScriptDirectory(envGlobal, envComputer);
 
-            if (injectionEnabled(envGlobal)) {
+            removeInitScript(node.getChannel(), initScriptDirectory);
+            if (injectionEnabled(envGlobal) && isInjectionEnabledForNode(node, envGlobal)) {
                 copyInitScript(node.getChannel(), initScriptDirectory);
-            } else {
-                removeInitScript(node.getChannel(), initScriptDirectory);
             }
+        } catch (IllegalStateException e) {
+            if (injectionEnabled(envGlobal)) {
+                LOGGER.warning("Error: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public String getEnabledNodesEnvironmentVariableName() {
+        return FEATURE_TOGGLE_ENABLED_NODES;
+    }
+
+    @Override
+    public String getDisabledNodesEnvironmentVariableName() {
+        return FEATURE_TOGGLE_DISABLED_NODES;
+    }
+
+    public void disableInjection(Node node, EnvVars envGlobal, EnvVars envComputer) {
+        try {
+            String initScriptDirectory = getInitScriptDirectory(envGlobal, envComputer);
+            removeInitScript(node.getChannel(), initScriptDirectory);
         } catch (IllegalStateException e) {
             if (injectionEnabled(envGlobal)) {
                 LOGGER.warning("Error: " + e.getMessage());
@@ -53,7 +76,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
             return homeOverride + "/" + GRADLE_DIR + "/" + INIT_DIR;
         } else {
             String home = EnvUtil.getEnv(envComputer, "HOME");
-            if(home == null){
+            if (home == null) {
                 throw new IllegalStateException("HOME is not set");
             }
             return home + "/" + GRADLE_DIR + "/" + INIT_DIR;

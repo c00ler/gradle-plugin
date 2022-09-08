@@ -71,7 +71,7 @@ def allTestTasks =
                 : tasks.register("test_${jenkinsVersion.label}", Test)
 
         testTask.configure {
-            inputs.files(copyTestDependencies.outputs.files)
+            dependsOn copyTestDependencies
 
             onlyIf {
                 // Do not run on Windows as written here: https://github.com/jenkinsci/acceptance-test-harness/blob/master/docs/EXTERNAL.md
@@ -90,7 +90,7 @@ def allTestTasks =
             environment([
                 JENKINS_WAR: jenkinsWarLocation,
                 PLUGINS_DIR: testDependenciesDir,
-                BROWSER    : 'chrome'
+                BROWSER    : 'firefox-container'
             ])
 
             javaLauncher = javaToolchains.launcherFor {

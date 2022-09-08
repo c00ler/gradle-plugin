@@ -1,9 +1,8 @@
 package hudson.plugins.gradle.injection
 
-import hudson.EnvVars
+
+import hudson.FilePath
 import hudson.slaves.DumbSlave
-import hudson.slaves.EnvironmentVariablesNodeProperty
-import hudson.slaves.NodeProperty
 import hudson.tasks.Maven
 import jenkins.model.Jenkins
 import jenkins.mvn.DefaultGlobalSettingsProvider
@@ -13,6 +12,8 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition
 import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jvnet.hudson.test.JenkinsRule
 import org.jvnet.hudson.test.ToolInstallations
+
+import java.util.stream.Collectors
 
 class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTest {
 
@@ -34,31 +35,97 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         hasBuildScanPublicationAttempt(log)
     }
 
-    def 'build scan is published without GE plugin with simple pipeline 2'() {
+    def 'Extension jars are copied and removed properly'() {
         given:
-        def slave = createSlave()
-        def pipelineJob = j.createProject(WorkflowJob)
-        pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
+        DumbSlave slave = createSlave()
+        FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+        def geExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE.name)
+        def ccudExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.CCUD.name)
+
+        expect:
+        extensionDirectory.exists()
+        extensionDirectory.list().size() == 1
+        extensionDirectory.list().get(0).getName() as String == "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"
 
         when:
-        def build = j.buildAndAssertSuccess(pipelineJob)
+        turnOffBuildInjectionAndRestart(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        def log = JenkinsRule.getLog(build)
-        hasJarInMavenExt(log, 'gradle-enterprise-maven-extension')
-        !hasJarInMavenExt(log, 'common-custom-user-data-maven-extension')
-        hasBuildScanPublicationAttempt(log)
+        extensionDirectory.list().size() == 0
 
         when:
-        disableGlobalBuildInjection(slave)
-        def secondBuild = j.buildAndAssertSuccess(pipelineJob)
+        turnOnBuildInjectionAndRestart(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        def newLog = JenkinsRule.getLog(secondBuild)
-        !hasJarInMavenExt(newLog, 'gradle-enterprise-maven-extension')
-        !hasJarInMavenExt(newLog, 'common-custom-user-data-maven-extension')
-        !hasBuildScanPublicationAttempt(newLog)
+        def expected = ["common-custom-user-data-maven-extension-${ccudExtensionFileName}.jar", "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"] as List<String>
+        extensionDirectory.list().size() == 2
+        extensionDirectory.list().stream().map({ it.name }).sorted().collect(Collectors.toList()) == expected
 
+        when:
+        turnOnBuildInjectionAndRestart(slave, false)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.list().size() == 1
+        extensionDirectory.list().get(0).getName() as String == "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"
+
+        when:
+        turnOnBuildInjectionAndRestart(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.list().size() == 2
+        extensionDirectory.list().stream().map({ it.name }).sorted().collect(Collectors.toList()) == expected
+
+        when:
+        turnOffBuildInjectionAndRestart(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.list().size() == 0
+    }
+
+    def 'Injection is enabled and disabled based on node labels'() {
+        given:
+        DumbSlave slave = createSlave()
+        FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        expect:
+        extensionDirectory.exists()
+        extensionDirectory.list().size() == 1
+
+        when:
+        withAdditionalGlobalEnvVars { put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, 'bar,foo') }
+        restartSlave(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.list().size() == 0
+
+        when:
+        withAdditionalGlobalEnvVars {
+            put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
+            put(MavenBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz,foo')
+        }
+        restartSlave(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.exists()
+        extensionDirectory.list().size() == 1
+
+        when:
+        withAdditionalGlobalEnvVars {
+            put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
+            put(MavenBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz')
+        }
+        restartSlave(slave)
+        extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
+        extensionDirectory.list().size() == 0
     }
 
     def 'build scan is published without GE plugin with Maven plugin'() {
@@ -98,7 +165,7 @@ node {
 
     def 'build scan is published with CCUD extension applied'() {
         given:
-        addGlobalEnvVar('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.10.1')
+        withGlobalEnvVars { put('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.10.1') }
         createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
@@ -115,7 +182,7 @@ node {
 
     def 'build scan is not published when global MAVEN_OPTS is set'() {
         given:
-        addGlobalEnvVar('MAVEN_OPTS', '-Dfoo=bar')
+        withGlobalEnvVars { put('MAVEN_OPTS', '-Dfoo=bar') }
         createSlave()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
@@ -161,35 +228,40 @@ node {
     }
 
     private DumbSlave createSlave() {
-        enableInjection()
+        withGlobalEnvVars {
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
+        }
+
         createSlave('foo')
     }
 
-    private void enableInjection() {
-        addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
-        addGlobalEnvVar('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
-    }
-
-    private EnvVars addGlobalEnvVar(String key, String value) {
-        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
-        EnvVars env = nodeProperty.getEnvVars()
-        env.put(key, value)
-        j.jenkins.globalNodeProperties.add(nodeProperty)
-        env
-    }
-
     private static boolean hasJarInMavenExt(String log, String jar) {
-        String version = new File(getClass().getResource("/versions/${jar}-version.txt").toURI()).getText()
+        String version = getExtensionVersion(jar)
         (log =~ /MAVEN_OPTS=.*-Dmaven\.ext\.class\.path=.*${jar}-${version}\.jar/).find()
+    }
+
+    private static String getExtensionVersion(String jar) {
+        new File(getClass().getResource("/versions/${jar}-version.txt").toURI()).getText()
     }
 
     private static boolean hasBuildScanPublicationAttempt(String log) {
         (log =~ /The build scan was not published due to a configuration problem/).find()
     }
 
-    private void disableGlobalBuildInjection(DumbSlave slave) {
-        disableBuildInjection(slave) {
-            remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION')
+    void turnOffBuildInjectionAndRestart(DumbSlave slave) {
+        configureEnvironmentVariables(slave) {
+            remove('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION')
+        }
+    }
+
+    void turnOnBuildInjectionAndRestart(DumbSlave slave, Boolean useCCUD = true) {
+        configureEnvironmentVariables(slave) {
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
+
+            if (useCCUD) {
+                put('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.14.2')
+            }
         }
     }
 }

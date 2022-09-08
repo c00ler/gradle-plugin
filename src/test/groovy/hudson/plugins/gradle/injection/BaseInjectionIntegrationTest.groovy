@@ -25,7 +25,35 @@ class BaseInjectionIntegrationTest extends AbstractIntegrationTest {
         return slave
     }
 
-    void disableBuildInjection(DumbSlave slave, @DelegatesTo(EnvVars) Closure closure = {}) {
+    void configureEnvironmentVariables(DumbSlave slave, @DelegatesTo(EnvVars) Closure closure = {}) {
+        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
+        EnvVars env = nodeProperty.getEnvVars()
+
+        env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+
+        closure.setDelegate(env)
+        closure.run()
+
+        j.jenkins.globalNodeProperties.clear()
+        j.jenkins.globalNodeProperties.add(nodeProperty)
+
+        // sync changes
+        restartSlave(slave)
+    }
+
+    EnvVars withGlobalEnvVars(@DelegatesTo(EnvVars) Closure closure) {
+        NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
+        EnvVars env = nodeProperty.getEnvVars()
+
+        closure.setDelegate(env)
+        closure.run()
+
+        j.jenkins.globalNodeProperties.clear()
+        j.jenkins.globalNodeProperties.add(nodeProperty)
+        env
+    }
+
+    EnvVars withAdditionalGlobalEnvVars(@DelegatesTo(EnvVars) Closure closure) {
         NodeProperty nodeProperty = new EnvironmentVariablesNodeProperty()
         EnvVars env = nodeProperty.getEnvVars()
 
@@ -33,8 +61,6 @@ class BaseInjectionIntegrationTest extends AbstractIntegrationTest {
         closure.run()
 
         j.jenkins.globalNodeProperties.add(nodeProperty)
-
-        // sync changes
-        restartSlave(slave)
+        env
     }
 }

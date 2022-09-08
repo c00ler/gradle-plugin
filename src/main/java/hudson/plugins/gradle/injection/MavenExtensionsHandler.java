@@ -13,14 +13,12 @@ import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtens
 
 public class MavenExtensionsHandler {
 
-    private static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
+    static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
 
     private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
     private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
 
     public void copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        deleteAllExtensionsFromAgent(rootPath);
-
         geExtensionHandler.copyExtensionToAgent(rootPath);
     }
 

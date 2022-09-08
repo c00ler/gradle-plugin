@@ -34,6 +34,8 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     private static final String GE_ALLOW_UNTRUSTED_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER";
     private static final String GE_URL_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
     private static final String GE_CCUD_VERSION_VAR = "JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION";
+    static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_DISABLED_NODES";
+    static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_ENABLED_NODES";
 
     private final MavenExtensionsHandler extensionsHandler = new MavenExtensionsHandler();
 
@@ -54,16 +56,25 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 return;
             }
 
-            if (injectionEnabled(envGlobal)) {
+            removeMavenExtensions(node, nodeRootPath);
+            if (injectionEnabled(envGlobal) && isInjectionEnabledForNode(node, envGlobal)) {
                 injectMavenExtensions(node, nodeRootPath);
-            } else {
-                removeMavenExtensions(node, nodeRootPath);
             }
         } catch (IllegalStateException e) {
             if (injectionEnabled(envGlobal)) {
                 LOGGER.warning("Error: " + e.getMessage());
             }
         }
+    }
+
+    @Override
+    public String getEnabledNodesEnvironmentVariableName() {
+        return FEATURE_TOGGLE_ENABLED_NODES;
+    }
+
+    @Override
+    public String getDisabledNodesEnvironmentVariableName() {
+        return FEATURE_TOGGLE_DISABLED_NODES;
     }
 
     private void injectMavenExtensions(Node node, FilePath nodeRootPath) {
