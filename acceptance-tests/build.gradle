@@ -96,7 +96,7 @@ def allTestTasks =
                 environment([
                     JENKINS_WAR: jenkinsWarLocation,
                     PLUGINS_DIR: testDependenciesDir,
-                    BROWSER    : 'firefox-container'
+                    BROWSER    : gradle.ciBuild ? 'firefox-container' : 'chrome'
                 ])
 
                 javaLauncher = javaToolchains.launcherFor {
