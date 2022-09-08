@@ -1,7 +1,6 @@
 package hudson.plugins.gradle.injection
 
 import hudson.EnvVars
-import hudson.FilePath
 import hudson.model.FreeStyleProject
 import hudson.plugins.gradle.Gradle
 import hudson.slaves.DumbSlave
@@ -63,7 +62,46 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         proxy.close()
     }
 
-    def 'Gradle #gradleVersion - manual step - conditional build scan publication'() {
+    def 'skips the injection if GE url is not set'(String gradleVersion) {
+        given:
+        gradleInstallationRule.gradleVersion = gradleVersion
+        gradleInstallationRule.addInstallation()
+
+        DumbSlave slave = createSlave(false)
+
+        FreeStyleProject p = j.createFreeStyleProject()
+        p.setAssignedNode(slave)
+
+        p.buildersList.add(buildScriptBuilder())
+        p.buildersList.add(new Gradle(tasks: 'hello', gradleName: gradleVersion, switches: "--no-daemon"))
+
+        when:
+        // first build to download Gradle
+        def build = j.buildAndAssertSuccess(p)
+
+        then:
+        println JenkinsRule.getLog(build)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build)
+
+        when:
+        enableBuildInjection(slave, gradleVersion)
+
+        then:
+        def initScript = new File(getGradleHome(slave, gradleVersion) + "/init.d/init-build-scan.gradle")
+        !initScript.exists()
+
+        when:
+        def build2 = j.buildAndAssertSuccess(p)
+
+        then:
+        println JenkinsRule.getLog(build2)
+        j.assertLogNotContains(MSG_INIT_SCRIPT_APPLIED, build2)
+
+        where:
+        gradleVersion << GRADLE_VERSIONS
+    }
+
+    def 'Gradle #gradleVersion - freestyle - conditional build scan publication'(String gradleVersion) {
         given:
         gradleInstallationRule.gradleVersion = gradleVersion
         gradleInstallationRule.addInstallation()
@@ -96,7 +134,7 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         gradleVersion << GRADLE_VERSIONS
     }
 
-    def 'Gradle #gradleVersion - pipeline - conditional build scan publication'() {
+    def 'Gradle #gradleVersion - pipeline - conditional build scan publication'(String gradleVersion) {
         given:
         gradleInstallationRule.gradleVersion = gradleVersion
         gradleInstallationRule.addInstallation()
@@ -142,7 +180,7 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         gradleVersion << GRADLE_VERSIONS
     }
 
-    def 'init script is deleted without JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION set'() {
+    def 'init script is deleted without JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION set'(String gradleVersion) {
         given:
         gradleInstallationRule.gradleVersion = gradleVersion
         gradleInstallationRule.addInstallation()
@@ -176,7 +214,7 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         gradleVersion << GRADLE_VERSIONS
     }
 
-    def 'Injection is enabled and disabled based on node labels'() {
+    def 'Injection is enabled and disabled based on node labels'(String gradleVersion) {
         given:
         gradleInstallationRule.gradleVersion = gradleVersion
         gradleInstallationRule.addInstallation()
@@ -235,11 +273,17 @@ task hello {
 """)
     }
 
-    private DumbSlave createSlave() {
-        return createSlave('foo') {
+    private DumbSlave createSlave(boolean setGeUrl = true) {
+        withGlobalEnvVars {
             put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
             put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
+
+            if (setGeUrl) {
+                put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
+            }
         }
+
+        return createSlave('foo')
     }
 
     private static String getGradleHome(DumbSlave slave, String gradleVersion) {
@@ -258,6 +302,7 @@ task hello {
         if (repositoryAddress != null) {
             env.put('JENKINSGRADLEPLUGIN_GRADLE_PLUGIN_REPOSITORY_URL', repositoryAddress.toASCIIString())
         }
+        j.jenkins.globalNodeProperties.clear()
         j.jenkins.globalNodeProperties.add(nodeProperty)
 
         // sync changes

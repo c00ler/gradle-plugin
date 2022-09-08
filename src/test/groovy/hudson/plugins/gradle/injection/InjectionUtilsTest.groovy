@@ -3,11 +3,11 @@ package hudson.plugins.gradle.injection
 import com.google.common.collect.Sets
 import spock.lang.Specification
 
-class BuildScanInjectionListenerTest extends Specification {
+class InjectionUtilsTest extends Specification {
 
-    def 'isInjectionEnabledForNode - #labels - #disabledNodes - #enabledNodes'() {
+    def 'isInjectionEnabledForNode - #labels - #disabledNodes - #enabledNodes'(List<String> labels, String disabledNodes, String enabledNodes, boolean shouldInject) {
         expect:
-        BuildScanInjectionListener.isInjectionEnabledForNode(Sets.newHashSet(labels), disabledNodes as String, enabledNodes as String) == shouldInject
+        InjectionUtils.isInjectionEnabledForNode(Sets.newHashSet(labels), disabledNodes, enabledNodes) == shouldInject
 
         where:
         labels                | disabledNodes | enabledNodes | shouldInject

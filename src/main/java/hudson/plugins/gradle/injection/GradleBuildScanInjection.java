@@ -16,6 +16,8 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME";
     private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME";
+    private static final String JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION";
+    private static final String JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
 
     static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_DISABLED_NODES";
     static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_ENABLED_NODES";
@@ -27,7 +29,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     @Override
     public String getActivationEnvironmentVariableName() {
-        return "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION";
+        return JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION;
     }
 
     @Override
@@ -37,6 +39,12 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
             removeInitScript(node.getChannel(), initScriptDirectory);
             if (injectionEnabled(envGlobal) && isInjectionEnabledForNode(node, envGlobal)) {
+                if (!isGradleEnterpriseUrlSet(envGlobal)) {
+                    throw new IllegalStateException(
+                        String.format("Required environment variable '%s' is not set",
+                            JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL));
+                }
+
                 copyInitScript(node.getChannel(), initScriptDirectory);
             }
         } catch (IllegalStateException e) {
@@ -56,17 +64,6 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         return FEATURE_TOGGLE_DISABLED_NODES;
     }
 
-    public void disableInjection(Node node, EnvVars envGlobal, EnvVars envComputer) {
-        try {
-            String initScriptDirectory = getInitScriptDirectory(envGlobal, envComputer);
-            removeInitScript(node.getChannel(), initScriptDirectory);
-        } catch (IllegalStateException e) {
-            if (injectionEnabled(envGlobal)) {
-                LOGGER.warning("Error: " + e.getMessage());
-            }
-        }
-    }
-
     private String getInitScriptDirectory(EnvVars envGlobal, EnvVars envComputer) {
         String gradleHomeOverride = EnvUtil.getEnv(envGlobal, JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME);
         String homeOverride = EnvUtil.getEnv(envGlobal, JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME);
@@ -83,19 +80,17 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         }
     }
 
-    private void copyInitScript(VirtualChannel channel, String initScriptDirectory) {
+    private void copyInitScript(VirtualChannel channel,
+                                String initScriptDirectory) {
         try {
-            FilePath gradleInitScriptFile = getInitScriptFile(channel, initScriptDirectory);
-            if (!gradleInitScriptFile.exists()) {
-                FilePath gradleInitScriptDirectory = new FilePath(channel, initScriptDirectory);
-                if (!gradleInitScriptDirectory.exists()) {
-                    LOGGER.fine("create init script directory");
-                    gradleInitScriptDirectory.mkdirs();
-                }
-
-                LOGGER.fine("copy init script file");
-                copyResourceToNode(gradleInitScriptFile, RESOURCE_INIT_SCRIPT_GRADLE);
+            FilePath gradleInitScriptDirectory = new FilePath(channel, initScriptDirectory);
+            if (!gradleInitScriptDirectory.exists()) {
+                LOGGER.fine("create init script directory");
+                gradleInitScriptDirectory.mkdirs();
             }
+
+            LOGGER.fine("copy init script file");
+            copyResourceToNode(getInitScriptFile(channel, initScriptDirectory), RESOURCE_INIT_SCRIPT_GRADLE);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
@@ -122,4 +117,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         return new FilePath(channel, initScriptDirectory + "/" + GRADLE_INIT_FILE);
     }
 
+    private static boolean isGradleEnterpriseUrlSet(EnvVars envGlobal) {
+        return EnvUtil.isSet(envGlobal, JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL);
+    }
 }

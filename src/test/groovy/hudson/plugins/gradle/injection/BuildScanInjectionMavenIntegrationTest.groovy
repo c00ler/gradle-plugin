@@ -21,7 +21,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
     def 'build scan is published without GE plugin with simple pipeline'() {
         given:
-        createSlave()
+        createSlaveAndTurnOnInjection()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
 
@@ -37,7 +37,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
     def 'Extension jars are copied and removed properly'() {
         given:
-        DumbSlave slave = createSlave()
+        DumbSlave slave = createSlaveAndTurnOnInjection()
         FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
         def geExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE.name)
         def ccudExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.CCUD.name)
@@ -89,7 +89,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
     def 'Injection is enabled and disabled based on node labels'() {
         given:
-        DumbSlave slave = createSlave()
+        DumbSlave slave = createSlaveAndTurnOnInjection()
         FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         expect:
@@ -130,7 +130,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
     def 'build scan is published without GE plugin with Maven plugin'() {
         given:
-        createSlave()
+        createSlaveAndTurnOnInjection()
         def pipelineJob = j.createProject(WorkflowJob)
         String mavenInstallationName = setupMavenInstallation()
 
@@ -165,8 +165,13 @@ node {
 
     def 'build scan is published with CCUD extension applied'() {
         given:
-        withGlobalEnvVars { put('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.10.1') }
-        createSlave()
+        withGlobalEnvVars {
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
+            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')
+            put('JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION', '1.10.1')
+        }
+
+        createSlave('foo')
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
 
@@ -182,10 +187,11 @@ node {
 
     def 'build scan is not published when global MAVEN_OPTS is set'() {
         given:
-        withGlobalEnvVars { put('MAVEN_OPTS', '-Dfoo=bar') }
-        createSlave()
+        def slave = createSlaveAndTurnOnInjection()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
+        withAdditionalGlobalEnvVars { put('MAVEN_OPTS', '-Dfoo=bar') }
+        restartSlave(slave)
 
         when:
         def build = j.buildAndAssertSuccess(pipelineJob)
@@ -227,7 +233,7 @@ node {
         mavenInstallationName
     }
 
-    private DumbSlave createSlave() {
+    private DumbSlave createSlaveAndTurnOnInjection() {
         withGlobalEnvVars {
             put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION', 'true')
             put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION', '1.14.2')

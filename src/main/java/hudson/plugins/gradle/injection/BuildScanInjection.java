@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 public interface BuildScanInjection {
 
     default boolean injectionEnabled(EnvVars env) {
-        return EnvUtil.getEnv(env, getActivationEnvironmentVariableName()) != null;
+        return EnvUtil.isSet(env, getActivationEnvironmentVariableName());
     }
 
     String getActivationEnvironmentVariableName();
