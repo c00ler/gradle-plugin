@@ -214,7 +214,7 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         gradleVersion << GRADLE_VERSIONS
     }
 
-    def 'Injection is enabled and disabled based on node labels'(String gradleVersion) {
+    def 'injection is enabled and disabled based on node labels'(String gradleVersion) {
         given:
         gradleInstallationRule.gradleVersion = gradleVersion
         gradleInstallationRule.addInstallation()

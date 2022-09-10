@@ -57,7 +57,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             }
 
             removeMavenExtensions(node, nodeRootPath);
-            if (injectionEnabled(envGlobal) && isInjectionEnabledForNode(node, envGlobal)) {
+            if (injectionEnabledForNode(node, envGlobal)) {
                 injectMavenExtensions(node, nodeRootPath);
             }
         } catch (IllegalStateException e) {

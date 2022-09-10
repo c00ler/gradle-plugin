@@ -38,7 +38,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
             String initScriptDirectory = getInitScriptDirectory(envGlobal, envComputer);
 
             removeInitScript(node.getChannel(), initScriptDirectory);
-            if (injectionEnabled(envGlobal) && isInjectionEnabledForNode(node, envGlobal)) {
+            if (injectionEnabledForNode(node, envGlobal)) {
                 if (!isGradleEnterpriseUrlSet(envGlobal)) {
                     throw new IllegalStateException(
                         String.format("Required environment variable '%s' is not set",

@@ -17,7 +17,7 @@ ext {
   corePatchVersion = '4'
   coreBomVersion = '3'
   gradleEnterpriseMavenExtensionVersion = "1.15.2"
-  commonCustomUserDataMavenExtensionVersion = "1.11"
+  commonCustomUserDataMavenExtensionVersion = "1.11.1"
 }
 
 jenkinsPlugin {
@@ -195,17 +195,19 @@ task createWrapperZip(type: Zip) {
 processTestResources.dependsOn(createWrapperZip)
 
 task generateVersionFile() {
-  var outputDir = layout.buildDirectory.dir('versions')
+  var versionsDir = layout.buildDirectory.dir('versions')
   doLast {
-      outputDir.get().asFile.mkdirs()
-      new File(outputDir.get().asFile, "gradle-enterprise-maven-extension-version.txt").text = "${gradleEnterpriseMavenExtensionVersion}"
-      new File(outputDir.get().asFile, "common-custom-user-data-maven-extension-version.txt").text = "${commonCustomUserDataMavenExtensionVersion}"
+      def outputDir = versionsDir.get().asFile
+      outputDir.mkdirs()
+
+      new File(outputDir, "gradle-enterprise-maven-extension-version.txt").text = "${gradleEnterpriseMavenExtensionVersion}"
+      new File(outputDir, "common-custom-user-data-maven-extension-version.txt").text = "${commonCustomUserDataMavenExtensionVersion}"
   }
 
   inputs.property('gradleEnterpriseMavenExtensionVersion', gradleEnterpriseMavenExtensionVersion)
   inputs.property('commonCustomUserDataMavenExtensionVersion', commonCustomUserDataMavenExtensionVersion)
 
-  outputs.dir(outputDir)
+  outputs.dir(versionsDir)
       .withPropertyName('versionsDir')
 }
 

@@ -87,7 +87,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         extensionDirectory.list().size() == 0
     }
 
-    def 'Injection is enabled and disabled based on node labels'() {
+    def 'injection is enabled and disabled based on node labels'() {
         given:
         DumbSlave slave = createSlaveAndTurnOnInjection()
         FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)

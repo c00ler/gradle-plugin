@@ -23,8 +23,7 @@ public final class InjectionUtils {
     }
 
     private static boolean isInEnabledNodes(String enabledNodes, Set<String> labels) {
-        HashSet<String> labelsToEnable = Sets.newHashSet(enabledNodes.split(","));
-        return labels.stream().anyMatch(labelsToEnable::contains);
+        return Sets.newHashSet(enabledNodes.split(",")).stream().anyMatch(labels::contains);
     }
 
     private static boolean isNotInDisabledNodes(String disabledNodes, Set<String> labels) {

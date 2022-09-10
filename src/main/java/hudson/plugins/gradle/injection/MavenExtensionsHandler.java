@@ -1,11 +1,13 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.base.Suppliers;
 import hudson.FilePath;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Supplier;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
@@ -40,40 +42,17 @@ public class MavenExtensionsHandler {
 
     private static final class MavenExtensionFileHandler {
         private final MavenExtension extension;
-        private String extensionVersion;
 
         MavenExtensionFileHandler(MavenExtension extension) {
             this.extension = extension;
         }
 
-        private String getExtensionVersion() throws IOException {
-            if (extensionVersion == null) {
-                String resourceName = getVersionFileName();
-                try (InputStream version = MavenBuildScanInjection.class.getResourceAsStream("/versions/" + resourceName)) {
-                    if (version == null) {
-                        throw new IllegalStateException("Could not find resource: " + resourceName);
-                    }
-                    this.extensionVersion = IOUtils.toString(version, StandardCharsets.UTF_8);
-                }
-            }
-
-            return extensionVersion;
-        }
-
         public void copyExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-            copyResourceToNode(rootPath.child(LIB_DIR_PATH).child(getJarName()), getJarName());
+            copyResourceToNode(rootPath.child(LIB_DIR_PATH).child(extension.getJarName()), extension.getJarName());
         }
 
-        public FilePath getAgentExtensionPath(FilePath rootPath) throws IOException {
-            return rootPath.child(LIB_DIR_PATH).child(getJarName());
-        }
-
-        private String getJarName() throws IOException {
-            return extension.name + "-" + getExtensionVersion() + ".jar";
-        }
-
-        private String getVersionFileName() {
-            return extension.name + "-version.txt";
+        public FilePath getAgentExtensionPath(FilePath rootPath) {
+            return rootPath.child(LIB_DIR_PATH).child(extension.getJarName());
         }
     }
 
@@ -82,9 +61,33 @@ public class MavenExtensionsHandler {
         CCUD("common-custom-user-data-maven-extension");
 
         final String name;
+        final Supplier<String> version;
+
+        public String getVersionFileName() {
+            return name + "-version.txt";
+        }
+
+        private String getExtensionVersion() {
+            try {
+                String resourceName = getVersionFileName();
+                try (InputStream version = MavenBuildScanInjection.class.getResourceAsStream("/versions/" + resourceName)) {
+                    if (version == null) {
+                        throw new IllegalStateException("Could not find resource: " + resourceName);
+                    }
+                    return IOUtils.toString(version, StandardCharsets.UTF_8);
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        public String getJarName() {
+            return name + "-" + getExtensionVersion() + ".jar";
+        }
 
         MavenExtension(String name) {
             this.name = name;
+            this.version = Suppliers.memoize(this::getExtensionVersion)::get;
         }
     }
 }
