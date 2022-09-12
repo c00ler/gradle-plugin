@@ -82,7 +82,7 @@ public class MavenExtensionsHandler {
         }
 
         public String getJarName() {
-            return name + "-" + getExtensionVersion() + ".jar";
+            return name + "-" + version.get() + ".jar";
         }
 
         MavenExtension(String name) {
