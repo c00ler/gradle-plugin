@@ -8,13 +8,14 @@ import hudson.slaves.EnvironmentVariablesNodeProperty
 import hudson.slaves.NodeProperty
 
 class BaseInjectionIntegrationTest extends AbstractIntegrationTest {
+
     void restartSlave(DumbSlave slave) {
         j.disconnectSlave(slave)
         j.waitOnline(slave)
     }
 
-    DumbSlave createSlave(String label) {
-        return j.createOnlineSlave(Label.get(label))
+    DumbSlave createSlave(String label, EnvVars env = null) {
+        return j.createOnlineSlave(Label.get(label), env)
     }
 
     void configureEnvironmentVariables(DumbSlave slave, @DelegatesTo(EnvVars) Closure closure = {}) {

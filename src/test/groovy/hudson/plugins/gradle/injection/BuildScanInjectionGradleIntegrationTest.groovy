@@ -274,20 +274,19 @@ task hello {
     }
 
     private DumbSlave createSlave(boolean setGeUrl = true) {
-        withGlobalEnvVars {
-            put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
-            put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
+        def nodeProperty = new EnvironmentVariablesNodeProperty()
+        def env = nodeProperty.getEnvVars()
 
-            if (setGeUrl) {
-                put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
-            }
+        env.put('JENKINSGRADLEPLUGIN_CCUD_PLUGIN_VERSION', '1.7')
+        if (setGeUrl) {
+            env.put('JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL', 'http://foo.com')
         }
 
-        return createSlave('foo')
+        return createSlave('foo', env)
     }
 
     private static String getGradleHome(DumbSlave slave, String gradleVersion) {
-        return slave.getRemoteFS() + "/tools/hudson.plugins.gradle.GradleInstallation/" + gradleVersion
+        return "${slave.getRemoteFS()}/tools/hudson.plugins.gradle.GradleInstallation/${gradleVersion}"
     }
 
     private void enableBuildInjection(DumbSlave slave, String gradleVersion, URI repositoryAddress = null) {

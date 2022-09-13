@@ -1,5 +1,6 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import hudson.FilePath;
 import org.apache.commons.io.IOUtils;
@@ -7,7 +8,6 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.function.Supplier;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
@@ -63,13 +63,18 @@ public class MavenExtensionsHandler {
         final String name;
         final Supplier<String> version;
 
-        public String getVersionFileName() {
-            return name + "-version.txt";
+        MavenExtension(String name) {
+            this.name = name;
+            this.version = Suppliers.memoize(this::getExtensionVersion);
+        }
+
+        public String getJarName() {
+            return name + "-" + version.get() + ".jar";
         }
 
         private String getExtensionVersion() {
             try {
-                String resourceName = getVersionFileName();
+                String resourceName = name + "-version.txt";
                 try (InputStream version = MavenBuildScanInjection.class.getResourceAsStream("/versions/" + resourceName)) {
                     if (version == null) {
                         throw new IllegalStateException("Could not find resource: " + resourceName);
@@ -79,15 +84,6 @@ public class MavenExtensionsHandler {
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
-        }
-
-        public String getJarName() {
-            return name + "-" + version.get() + ".jar";
-        }
-
-        MavenExtension(String name) {
-            this.name = name;
-            this.version = Suppliers.memoize(this::getExtensionVersion)::get;
         }
     }
 }
