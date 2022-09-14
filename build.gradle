@@ -13,9 +13,10 @@ group = 'org.jenkins-ci.plugins'
 description = 'This plugin adds Gradle support to Jenkins'
 
 ext {
-  coreBaseVersion = '2.138'
-  corePatchVersion = '4'
-  coreBomVersion = '3'
+  // TODO: Rollback jenkins version
+  coreBaseVersion = '2.332'
+  corePatchVersion = '1'
+  coreBomVersion = '1370.vfa_e23fe119c3'
   gradleEnterpriseMavenExtensionVersion = "1.15.2"
   commonCustomUserDataMavenExtensionVersion = "1.11.1"
 }
@@ -60,6 +61,10 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(8))
     }
+
+    registerFeature("optionalPlugin") {
+        usingSourceSet(sourceSets.main)
+    }
 }
 
 configurations {
@@ -68,6 +73,26 @@ configurations {
         canBeConsumed = true
         canBeResolved = false
     }
+}
+
+
+// see https://github.com/jenkinsci/gradle-jpi-plugin#customizing-further
+//tasks.named('server').configure {
+//    execSpec {
+//        systemProperty 'hudson.maven.debugPort', '5050'
+//        systemProperty 'hudson.maven.debug', 'true'
+//    }
+//}
+
+// required for newer jenkins
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute module('com.google.inject:guice') using module('com.google.inject:guice:5.0.1') withoutClassifier()
+    }
+}
+
+repositories {
+    mavenLocal() // For the local version of maven-plugin
 }
 
 dependencies {
@@ -80,6 +105,8 @@ dependencies {
   implementation 'org.jenkins-ci.plugins.workflow:workflow-basic-steps'
   implementation 'org.jenkins-ci.plugins.workflow:workflow-durable-task-step'
   implementation 'org.jenkins-ci.plugins.workflow:workflow-step-api'
+
+  optionalPluginImplementation 'org.jenkins-ci.main:maven-plugin:3.20-SNAPSHOT'
 
   includedLibs "com.gradle:gradle-enterprise-maven-extension:${gradleEnterpriseMavenExtensionVersion}"
   includedLibs "com.gradle:common-custom-user-data-maven-extension:${commonCustomUserDataMavenExtensionVersion}"
