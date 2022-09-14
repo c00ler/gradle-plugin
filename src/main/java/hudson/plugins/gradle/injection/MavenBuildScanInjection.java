@@ -97,9 +97,10 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 libs.add(extensionsHandler.getCCUDExtensionPath(nodeRootPath));
             }
 
-            String cp = constructExtClasspath(libs, isUnix(node));
+            boolean isUnix = isUnix(node);
+
             List<String> mavenOptsKeyValuePairs = new ArrayList<>();
-            mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, cp));
+            mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, constructExtClasspath(libs, isUnix)));
             mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY, "false"));
 
             if (getGlobalEnvVar(GE_ALLOW_UNTRUSTED_VAR) != null) {
@@ -109,7 +110,10 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GE_URL_VAR)));
             }
             MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
-            EnvUtil.setEnvVar(node, GE_EXTENSION_CLASSPATH_VAR, cp);
+
+            extensionsHandler.copyConfigurationExtensionToAgent(nodeRootPath);
+            libs.add(extensionsHandler.getConfigurationExtensionPath(nodeRootPath));
+            EnvUtil.setEnvVar(node, GE_EXTENSION_CLASSPATH_VAR, constructExtClasspath(libs, isUnix));
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }

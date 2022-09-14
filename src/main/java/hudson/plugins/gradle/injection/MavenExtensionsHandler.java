@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
+import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CONFIGURATION;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE;
 
 public class MavenExtensionsHandler {
@@ -19,6 +20,7 @@ public class MavenExtensionsHandler {
 
     private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
     private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
+    private final MavenExtensionFileHandler configurationExtensionHandler = new MavenExtensionFileHandler(CONFIGURATION);
 
     public void copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
         geExtensionHandler.copyExtensionToAgent(rootPath);
@@ -34,6 +36,14 @@ public class MavenExtensionsHandler {
 
     public FilePath getCCUDExtensionPath(FilePath rootPath) throws IOException {
         return ccudExtensionHandler.getAgentExtensionPath(rootPath);
+    }
+
+    public void copyConfigurationExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
+        configurationExtensionHandler.copyExtensionToAgent(rootPath);
+    }
+
+    public FilePath getConfigurationExtensionPath(FilePath rootPath) throws IOException {
+        return configurationExtensionHandler.getAgentExtensionPath(rootPath);
     }
 
     public void deleteAllExtensionsFromAgent(FilePath rootPath) throws IOException, InterruptedException {
@@ -58,14 +68,22 @@ public class MavenExtensionsHandler {
 
     public enum MavenExtension {
         GRADLE_ENTERPRISE("gradle-enterprise-maven-extension"),
-        CCUD("common-custom-user-data-maven-extension");
+        CCUD("common-custom-user-data-maven-extension"),
+        CONFIGURATION("configuration-maven-extension", "1.0.0");
 
         final String name;
         final Supplier<String> version;
 
         MavenExtension(String name) {
+            this(name, null);
+        }
+
+        MavenExtension(String name, String fixedVersion) {
             this.name = name;
-            this.version = Suppliers.memoize(this::getExtensionVersion);
+            this.version =
+                fixedVersion != null
+                    ? Suppliers.ofInstance(fixedVersion)
+                    : Suppliers.memoize(this::getExtensionVersion);
         }
 
         public String getJarName() {

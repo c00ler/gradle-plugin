@@ -77,12 +77,14 @@ configurations {
 
 
 // see https://github.com/jenkinsci/gradle-jpi-plugin#customizing-further
-//tasks.named('server').configure {
-//    execSpec {
+tasks.named('server').configure {
+    execSpec {
+        classpath(layout.buildDirectory.dir('resources/test'))
+
 //        systemProperty 'hudson.maven.debugPort', '5050'
 //        systemProperty 'hudson.maven.debug', 'true'
-//    }
-//}
+    }
+}
 
 // required for newer jenkins
 configurations.all {
@@ -110,6 +112,7 @@ dependencies {
 
   includedLibs "com.gradle:gradle-enterprise-maven-extension:${gradleEnterpriseMavenExtensionVersion}"
   includedLibs "com.gradle:common-custom-user-data-maven-extension:${commonCustomUserDataMavenExtensionVersion}"
+  includedLibs project(path: ':configuration-maven-extension', configuration: 'mvnExtension')
 
   signature 'org.codehaus.mojo.signature:java18:1.0@signature'
 
