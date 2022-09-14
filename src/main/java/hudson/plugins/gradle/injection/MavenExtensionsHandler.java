@@ -8,42 +8,28 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
-import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
-import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CONFIGURATION;
-import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE;
 
 public class MavenExtensionsHandler {
 
     static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
 
-    private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
-    private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
-    private final MavenExtensionFileHandler configurationExtensionHandler = new MavenExtensionFileHandler(CONFIGURATION);
+    private final Map<MavenExtension, MavenExtensionFileHandler> fileHandlers =
+        Arrays.stream(MavenExtension.values())
+            .map(MavenExtensionFileHandler::new)
+            .collect(Collectors.toMap(h -> h.extension, Function.identity()));
 
-    public void copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        geExtensionHandler.copyExtensionToAgent(rootPath);
+    public void copyExtensionToAgent(MavenExtension extension, FilePath rootPath) throws IOException, InterruptedException {
+        fileHandlers.get(extension).copyExtensionToAgent(rootPath);
     }
 
-    public FilePath getGradleEnterpriseExtensionPath(FilePath rootPath) throws IOException {
-        return geExtensionHandler.getAgentExtensionPath(rootPath);
-    }
-
-    public void copyCCUDExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        ccudExtensionHandler.copyExtensionToAgent(rootPath);
-    }
-
-    public FilePath getCCUDExtensionPath(FilePath rootPath) throws IOException {
-        return ccudExtensionHandler.getAgentExtensionPath(rootPath);
-    }
-
-    public void copyConfigurationExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        configurationExtensionHandler.copyExtensionToAgent(rootPath);
-    }
-
-    public FilePath getConfigurationExtensionPath(FilePath rootPath) throws IOException {
-        return configurationExtensionHandler.getAgentExtensionPath(rootPath);
+    public FilePath getAgentExtensionPath(MavenExtension extension, FilePath rootPath) throws IOException {
+        return fileHandlers.get(extension).getAgentExtensionPath(rootPath);
     }
 
     public void deleteAllExtensionsFromAgent(FilePath rootPath) throws IOException, InterruptedException {

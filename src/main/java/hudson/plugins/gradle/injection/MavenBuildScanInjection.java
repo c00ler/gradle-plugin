@@ -89,12 +89,12 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             LOGGER.info("Injecting Maven extensions " + nodeRootPath);
             List<FilePath> libs = new LinkedList<>();
 
-            extensionsHandler.copyGradleEnterpriseExtensionToAgent(nodeRootPath);
-            libs.add(extensionsHandler.getGradleEnterpriseExtensionPath(nodeRootPath));
+            extensionsHandler.copyExtensionToAgent(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE, nodeRootPath);
+            libs.add(extensionsHandler.getAgentExtensionPath(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE, nodeRootPath));
 
             if (getGlobalEnvVar(GE_CCUD_VERSION_VAR) != null) {
-                extensionsHandler.copyCCUDExtensionToAgent(nodeRootPath);
-                libs.add(extensionsHandler.getCCUDExtensionPath(nodeRootPath));
+                extensionsHandler.copyExtensionToAgent(MavenExtensionsHandler.MavenExtension.CCUD, nodeRootPath);
+                libs.add(extensionsHandler.getAgentExtensionPath(MavenExtensionsHandler.MavenExtension.CCUD, nodeRootPath));
             }
 
             boolean isUnix = isUnix(node);
@@ -111,8 +111,9 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             }
             MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
 
-            extensionsHandler.copyConfigurationExtensionToAgent(nodeRootPath);
-            libs.add(extensionsHandler.getConfigurationExtensionPath(nodeRootPath));
+            // Configuration extension should not be added to MAVEN_OPTS
+            extensionsHandler.copyExtensionToAgent(MavenExtensionsHandler.MavenExtension.CONFIGURATION, nodeRootPath);
+            libs.add(extensionsHandler.getAgentExtensionPath(MavenExtensionsHandler.MavenExtension.CONFIGURATION, nodeRootPath));
             EnvUtil.setEnvVar(node, GE_EXTENSION_CLASSPATH_VAR, constructExtClasspath(libs, isUnix));
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
