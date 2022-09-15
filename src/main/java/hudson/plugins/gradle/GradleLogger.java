@@ -28,6 +28,6 @@ public class GradleLogger implements Serializable {
     public static GradleLogger of(@Nullable TaskListener taskListener) {
         return taskListener != null
             ? new GradleLogger(taskListener)
-            : new GradleLogger(new NullTaskListener());
+            : new GradleLogger(TaskListener.NULL);
     }
 }

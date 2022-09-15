@@ -10,7 +10,6 @@ import hudson.model.AbstractBuild;
 import hudson.model.Computer;
 import hudson.model.Node;
 import hudson.model.TaskListener;
-import hudson.plugins.gradle.NullTaskListener;
 import hudson.plugins.gradle.injection.MavenBuildScanInjection;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
@@ -29,7 +28,6 @@ public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleCont
     private static final Logger LOGGER = Logger.getLogger(GradleEnterpriseExtensionPlexusContributor.class.getName());
 
     private static final PlexusModuleContributor EMPTY_CONTRIBUTOR = PlexusModuleContributor.of();
-    private static final TaskListener NULL_TASK_LISTENER = new NullTaskListener();
     private static final Splitter UNIX_CLASSPATH_SPLITTER = Splitter.on(':').omitEmptyStrings();
     private static final Splitter WINDOWS_CLASSPATH_SPLITTER = Splitter.on(';').omitEmptyStrings();
 
@@ -81,7 +79,7 @@ public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleCont
             for (NodeProperty<?> nodeProperty : node.getNodeProperties()) {
                 if (nodeProperty instanceof EnvironmentVariablesNodeProperty) {
                     // task listener is not used
-                    nodeProperty.buildEnvVars(envVars, NULL_TASK_LISTENER);
+                    nodeProperty.buildEnvVars(envVars, TaskListener.NULL);
                 }
             }
             return envVars;
