@@ -1,13 +1,8 @@
 package hudson.plugins.gradle.injection;
 
-import com.google.common.collect.Iterables;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Node;
-import hudson.slaves.EnvironmentVariablesNodeProperty;
-import hudson.slaves.NodeProperty;
-import hudson.slaves.NodePropertyDescriptor;
-import hudson.util.DescribableList;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

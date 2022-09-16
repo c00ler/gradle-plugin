@@ -11,12 +11,14 @@ import hudson.model.InvisibleAction;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.plugins.gradle.GradleLogger;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @Extension
 public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentContributor {
@@ -72,6 +74,9 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
 
             r.addAction(new MavenInjectionEnvironmentAction(mavenInjectionEnvironment));
             envs.putAll(mavenInjectionEnvironment);
+
+            GradleLogger gradleLogger = new GradleLogger(listener);
+            gradleLogger.info("The following environment variables were added to the run: " + asString(mavenInjectionEnvironment));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to read maven build scan injection .env file", e);
         }
@@ -80,17 +85,16 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
     private EnvVars parseEnvFile(String envFileContent) {
         EnvVars envVars = new EnvVars();
 
-        for (String line : LINE_SPLITTER.split(envFileContent)) {
-            int separatorFirstIndex = line.indexOf("=");
-            if (separatorFirstIndex > 0) {
-                String key = line.substring(0, separatorFirstIndex);
-                String value = line.substring(separatorFirstIndex + 1);
-
-                envVars.put(key, value);
-            }
-        }
+        LINE_SPLITTER.split(envFileContent).forEach(envVars::addLine);
 
         return envVars;
+    }
+
+    private String asString(EnvVars envVars) {
+        return envVars.entrySet()
+            .stream()
+            .map(e -> e.getKey() + "=" + e.getValue())
+            .collect(Collectors.joining(", "));
     }
 
     public static class MavenInjectionEnvironmentAction extends InvisibleAction {
