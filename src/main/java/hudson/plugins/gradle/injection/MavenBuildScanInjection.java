@@ -18,7 +18,6 @@ public class MavenBuildScanInjection implements BuildScanInjection {
 
     private static final Logger LOGGER = Logger.getLogger(MavenBuildScanInjection.class.getName());
 
-
     // Maven system properties passed on the CLI to a Maven build
     private static final String GRADLE_ENTERPRISE_URL_PROPERTY_KEY = "gradle.enterprise.url";
     private static final String GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY = "gradle.enterprise.allowUntrustedServer";
@@ -56,7 +55,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 return;
             }
 
-            removeMavenExtensions(node, nodeRootPath);
+            removeMavenExtensions(nodeRootPath);
             if (injectionEnabledForNode(node, envGlobal)) {
                 injectMavenExtensions(node, nodeRootPath);
             }
@@ -101,7 +100,9 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             if (getGlobalEnvVar(GE_URL_VAR) != null) {
                 mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GE_URL_VAR)));
             }
-            MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
+
+            FilePath envFile = nodeRootPath.child(MavenExtensionsHandler.LIB_DIR_PATH).child(MavenExtensionsHandler.ENV_FILE);
+            MAVEN_OPTS_SETTER.appendIfMissing(node, envFile, mavenOptsKeyValuePairs);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
@@ -112,9 +113,8 @@ public class MavenBuildScanInjection implements BuildScanInjection {
         return computer == null || Boolean.TRUE.equals(computer.isUnix());
     }
 
-    private void removeMavenExtensions(Node node, FilePath rootPath) {
+    private void removeMavenExtensions(FilePath rootPath) {
         try {
-            MAVEN_OPTS_SETTER.remove(node);
             extensionsHandler.deleteAllExtensionsFromAgent(rootPath);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);

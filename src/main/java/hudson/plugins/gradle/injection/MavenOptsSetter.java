@@ -1,10 +1,17 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.collect.Iterables;
 import hudson.EnvVars;
+import hudson.FilePath;
 import hudson.model.Node;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
+import hudson.slaves.NodeProperty;
+import hudson.slaves.NodePropertyDescriptor;
+import hudson.util.DescribableList;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -21,14 +28,17 @@ class MavenOptsSetter {
         this.keys = new HashSet<>(Arrays.asList(keys));
     }
 
-    void appendIfMissing(Node node, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
+    void appendIfMissing(Node node, FilePath envFile, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
         String mavenOpts = removeSystemProperties(getMavenOpts(node)) + " " + String.join(" ", mavenOptsKeyValuePairs);
-        setMavenOpts(node, mavenOpts);
-    }
 
-    void remove(Node node) throws IOException, InterruptedException {
-        String mavenOpts = removeSystemProperties(getMavenOpts(node));
-        setMavenOpts(node, mavenOpts);
+        byte[] envFileContent =
+            new StringBuilder()
+                .append(MAVEN_OPTS_VAR).append("=").append(mavenOpts)
+                .append(System.lineSeparator())
+                .toString()
+                .getBytes(StandardCharsets.UTF_8);
+
+        envFile.copyFrom(new ByteArrayInputStream(envFileContent));
     }
 
     private String getMavenOpts(Node node) throws IOException, InterruptedException {
@@ -36,14 +46,10 @@ class MavenOptsSetter {
         return nodeEnvVars.get(MAVEN_OPTS_VAR);
     }
 
-    private void setMavenOpts(Node node, String mavenOpts) {
-        node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(MAVEN_OPTS_VAR, mavenOpts)));
-    }
-
     private String removeSystemProperties(String mavenOpts) throws RuntimeException {
         return Optional.ofNullable(mavenOpts)
-                .map(this::filterMavenOpts)
-                .orElse("");
+            .map(this::filterMavenOpts)
+            .orElse("");
     }
 
     /**
@@ -52,9 +58,9 @@ class MavenOptsSetter {
      */
     private String filterMavenOpts(String mavenOpts) {
         return Arrays.stream(mavenOpts.split(" "))
-                .filter(this::shouldBeKept)
-                .collect(Collectors.joining(" "))
-                .trim();
+            .filter(this::shouldBeKept)
+            .collect(Collectors.joining(" "))
+            .trim();
     }
 
     /**

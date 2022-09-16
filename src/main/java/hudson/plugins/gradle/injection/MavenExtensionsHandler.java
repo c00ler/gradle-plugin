@@ -15,7 +15,8 @@ import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtens
 
 public class MavenExtensionsHandler {
 
-    static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
+    public static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
+    public static final String ENV_FILE = ".env";
 
     private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
     private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
