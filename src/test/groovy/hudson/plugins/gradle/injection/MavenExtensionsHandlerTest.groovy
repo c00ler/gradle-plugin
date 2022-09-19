@@ -1,6 +1,7 @@
 package hudson.plugins.gradle.injection
 
 import hudson.FilePath
+import hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import spock.lang.Specification
@@ -22,7 +23,7 @@ class MavenExtensionsHandlerTest extends Specification {
         def root = new FilePath(folder)
 
         when:
-        def firstFilePath = extensionCopier.call(root)
+        def firstFilePath = mavenExtensionsHandler.copyExtensionToAgent(mavenExtension, root)
 
         then:
         firstFilePath.exists()
@@ -30,7 +31,7 @@ class MavenExtensionsHandlerTest extends Specification {
         firstLastModified > 0
 
         when:
-        def secondFilePath = extensionCopier.call(root)
+        def secondFilePath = mavenExtensionsHandler.copyExtensionToAgent(mavenExtension, root)
 
         then:
         secondFilePath.exists()
@@ -39,10 +40,7 @@ class MavenExtensionsHandlerTest extends Specification {
         secondLastModified == firstLastModified
 
         where:
-        extensionCopier << [
-            { FilePath filePath -> new MavenExtensionsHandler().copyExtensionToAgent(filePath) },
-            { FilePath filePath -> new MavenExtensionsHandler().copyCCUDExtensionToAgent(filePath) }
-        ]
+        mavenExtension << MavenExtension.values().toList()
     }
 
     def "removes all files"() {
@@ -51,8 +49,8 @@ class MavenExtensionsHandlerTest extends Specification {
         def root = new FilePath(folder)
 
         when:
-        def geExtensionFilePath = mavenExtensionsHandler.copyExtensionToAgent(root)
-        def ccudExtensionFilePath = mavenExtensionsHandler.copyCCUDExtensionToAgent(root)
+        def geExtensionFilePath = mavenExtensionsHandler.copyExtensionToAgent(MavenExtension.GRADLE_ENTERPRISE, root)
+        def ccudExtensionFilePath = mavenExtensionsHandler.copyExtensionToAgent(MavenExtension.CCUD, root)
 
         then:
         geExtensionFilePath.exists()
