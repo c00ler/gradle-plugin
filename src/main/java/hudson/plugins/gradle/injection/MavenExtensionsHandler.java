@@ -20,20 +20,12 @@ public class MavenExtensionsHandler {
     private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
     private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
 
-    public void copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        geExtensionHandler.copyExtensionToAgent(rootPath);
+    public FilePath copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
+        return geExtensionHandler.copyExtensionToAgent(rootPath);
     }
 
-    public FilePath getGradleEnterpriseExtensionPath(FilePath rootPath) throws IOException {
-        return geExtensionHandler.getAgentExtensionPath(rootPath);
-    }
-
-    public void copyCCUDExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        ccudExtensionHandler.copyExtensionToAgent(rootPath);
-    }
-
-    public FilePath getCCUDExtensionPath(FilePath rootPath) throws IOException {
-        return ccudExtensionHandler.getAgentExtensionPath(rootPath);
+    public FilePath copyCCUDExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
+        return ccudExtensionHandler.copyExtensionToAgent(rootPath);
     }
 
     public void deleteAllExtensionsFromAgent(FilePath rootPath) throws IOException, InterruptedException {
@@ -41,18 +33,23 @@ public class MavenExtensionsHandler {
     }
 
     private static final class MavenExtensionFileHandler {
+
         private final MavenExtension extension;
 
         MavenExtensionFileHandler(MavenExtension extension) {
             this.extension = extension;
         }
 
-        public void copyExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-            copyResourceToNode(rootPath.child(LIB_DIR_PATH).child(extension.getJarName()), extension.getJarName());
-        }
-
-        public FilePath getAgentExtensionPath(FilePath rootPath) {
-            return rootPath.child(LIB_DIR_PATH).child(extension.getJarName());
+        /**
+         * Copies the extension to the agent, if it is not already present, and returns a path to the extension
+         * on the agent.
+         */
+        public FilePath copyExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
+            FilePath nodePath = rootPath.child(LIB_DIR_PATH).child(extension.getJarName());
+            if (!nodePath.exists()) {
+                copyResourceToNode(nodePath, extension.getJarName());
+            }
+            return nodePath;
         }
     }
 
