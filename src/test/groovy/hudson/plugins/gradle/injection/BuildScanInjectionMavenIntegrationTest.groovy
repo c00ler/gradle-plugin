@@ -2,6 +2,7 @@ package hudson.plugins.gradle.injection
 
 import hudson.FilePath
 import hudson.slaves.DumbSlave
+import hudson.slaves.EnvironmentVariablesNodeProperty
 import hudson.tasks.Maven
 import jenkins.model.Jenkins
 import jenkins.mvn.DefaultGlobalSettingsProvider
@@ -32,17 +33,24 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         hasBuildScanPublicationAttempt(log)
     }
 
-    def 'Extension jars are copied and removed properly'() {
+    def 'extension jars are copied and removed properly and MAVEN_OPTS is set'() {
         given:
-        DumbSlave slave = createSlaveAndTurnOnInjection()
-        FilePath extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
-        def geExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE.name)
-        def ccudExtensionFileName = getExtensionVersion(MavenExtensionsHandler.MavenExtension.CCUD.name)
+        def geExtensionJar =
+            "gradle-enterprise-maven-extension-${getExtensionVersion(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE.name)}.jar"
+        def ccudExtensionJar =
+            "common-custom-user-data-maven-extension-${getExtensionVersion(MavenExtensionsHandler.MavenExtension.CCUD.name)}.jar"
 
-        expect:
+        when:
+        def slave = createSlaveAndTurnOnInjection()
+        def extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
+
+        then:
         extensionDirectory.exists()
         extensionDirectory.list().size() == 1
-        extensionDirectory.list().get(0).getName() as String == "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"
+        extensionDirectory.list().find { it.name == geExtensionJar } != null
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        !hasJarInMavenExt(slave, ccudExtensionJar)
 
         when:
         turnOffBuildInjectionAndRestart(slave)
@@ -51,22 +59,31 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         then:
         extensionDirectory.list().size() == 0
 
+        getMavenOptsFromNodeProperties(slave) == ""
+
         when:
         turnOnBuildInjectionAndRestart(slave)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        def expected = ["common-custom-user-data-maven-extension-${ccudExtensionFileName}.jar", "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"] as List<String>
         extensionDirectory.list().size() == 2
-        extensionDirectory.list().collect { it.name }.toSorted() == expected
+        extensionDirectory.list().find { it.name == geExtensionJar } != null
+        extensionDirectory.list().find { it.name == ccudExtensionJar } != null
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        hasJarInMavenExt(slave, ccudExtensionJar)
 
         when:
         turnOnBuildInjectionAndRestart(slave, false)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 1
-        extensionDirectory.list().get(0).getName() as String == "gradle-enterprise-maven-extension-${geExtensionFileName}.jar"
+        extensionDirectory.list().size() == 2
+        extensionDirectory.list().find { it.name == geExtensionJar } != null
+        extensionDirectory.list().find { it.name == ccudExtensionJar } != null
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        !hasJarInMavenExt(slave, ccudExtensionJar)
 
         when:
         turnOnBuildInjectionAndRestart(slave)
@@ -74,7 +91,11 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
         then:
         extensionDirectory.list().size() == 2
-        extensionDirectory.list().collect { it.name }.toSorted() == expected
+        extensionDirectory.list().find { it.name == geExtensionJar } != null
+        extensionDirectory.list().find { it.name == ccudExtensionJar } != null
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        hasJarInMavenExt(slave, ccudExtensionJar)
 
         when:
         turnOffBuildInjectionAndRestart(slave)
@@ -82,6 +103,8 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
         then:
         extensionDirectory.list().size() == 0
+
+        getMavenOptsFromNodeProperties(slave) == ""
     }
 
     def 'injection is enabled and disabled based on node labels'() {
@@ -240,8 +263,18 @@ node {
     }
 
     private static boolean hasJarInMavenExt(String log, String jar) {
-        String version = getExtensionVersion(jar)
+        def version = getExtensionVersion(jar)
         (log =~ /MAVEN_OPTS=.*-Dmaven\.ext\.class\.path=.*${jar}-${version}\.jar/).find()
+    }
+
+    private static boolean hasJarInMavenExt(DumbSlave slave, String jar) {
+        def mavenOpts = getMavenOptsFromNodeProperties(slave)
+        return mavenOpts && mavenOpts ==~ /.*-Dmaven\.ext\.class\.path=.*${jar}.*/
+    }
+
+    private static String getMavenOptsFromNodeProperties(DumbSlave slave) {
+        def all = slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class)
+        return all?.last()?.getEnvVars()?.get("MAVEN_OPTS")
     }
 
     private static String getExtensionVersion(String jar) {
