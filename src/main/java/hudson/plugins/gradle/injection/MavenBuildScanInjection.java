@@ -86,6 +86,8 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             libs.add(extensionsHandler.copyGradleEnterpriseExtensionToAgent(nodeRootPath));
             if (getGlobalEnvVar(GE_CCUD_VERSION_VAR) != null) {
                 libs.add(extensionsHandler.copyCCUDExtensionToAgent(nodeRootPath));
+            } else {
+                extensionsHandler.deleteCCUDExtensionFromAgent(nodeRootPath);
             }
 
             String cp = constructExtClasspath(libs, isUnix(node));
@@ -106,11 +108,6 @@ public class MavenBuildScanInjection implements BuildScanInjection {
         }
     }
 
-    private boolean isUnix(Node node) {
-        Computer computer = node.toComputer();
-        return computer == null || Boolean.TRUE.equals(computer.isUnix());
-    }
-
     private void removeMavenExtensions(Node node, FilePath rootPath) {
         try {
             MAVEN_OPTS_SETTER.remove(node);
@@ -128,13 +125,18 @@ public class MavenBuildScanInjection implements BuildScanInjection {
         return isUnix ? ":" : ";";
     }
 
-    private String getGlobalEnvVar(String varName) {
-        EnvironmentVariablesNodeProperty envProperty = Jenkins.get().getGlobalNodeProperties()
-            .get(EnvironmentVariablesNodeProperty.class);
+    private static boolean isUnix(Node node) {
+        Computer computer = node.toComputer();
+        return computer == null || Boolean.TRUE.equals(computer.isUnix());
+    }
+
+    private static String getGlobalEnvVar(String varName) {
+        EnvironmentVariablesNodeProperty envProperty =
+            Jenkins.get().getGlobalNodeProperties().get(EnvironmentVariablesNodeProperty.class);
         return envProperty.getEnvVars().get(varName);
     }
 
-    private String asSystemProperty(String sysProp, String value) {
+    private static String asSystemProperty(String sysProp, String value) {
         return "-D" + sysProp + "=" + value;
     }
 }

@@ -13,7 +13,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
-import static hudson.plugins.gradle.injection.CopyUtil.resourceDigest;
+import static hudson.plugins.gradle.injection.CopyUtil.unsafeResourceDigest;
 
 public class GradleBuildScanInjection implements BuildScanInjection {
 
@@ -32,7 +32,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     private static final String GRADLE_DIR = ".gradle";
     private static final String GRADLE_INIT_FILE = "init-build-scan.gradle";
 
-    private final Supplier<String> initScriptDigest = Suppliers.memoize(GradleBuildScanInjection::unsafeInitScriptDigest);
+    private final Supplier<String> initScriptDigest = Suppliers.memoize(() -> unsafeResourceDigest(RESOURCE_INIT_SCRIPT_GRADLE));
 
     @Override
     public String getActivationEnvironmentVariableName() {
@@ -141,13 +141,5 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     private static boolean isGradleEnterpriseUrlSet(EnvVars envGlobal) {
         return EnvUtil.isSet(envGlobal, JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL);
-    }
-
-    private static String unsafeInitScriptDigest() {
-        try {
-            return resourceDigest(RESOURCE_INIT_SCRIPT_GRADLE);
-        } catch (IOException | InterruptedException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

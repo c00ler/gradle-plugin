@@ -8,8 +8,10 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
+import static hudson.plugins.gradle.injection.CopyUtil.unsafeResourceDigest;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
 import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE;
 
@@ -28,6 +30,10 @@ public class MavenExtensionsHandler {
         return ccudExtensionHandler.copyExtensionToAgent(rootPath);
     }
 
+    public void deleteCCUDExtensionFromAgent(FilePath rootPath) throws IOException, InterruptedException {
+        ccudExtensionHandler.deleteExtensionFromAgent(rootPath);
+    }
+
     public void deleteAllExtensionsFromAgent(FilePath rootPath) throws IOException, InterruptedException {
         rootPath.child(LIB_DIR_PATH).deleteContents();
     }
@@ -35,9 +41,12 @@ public class MavenExtensionsHandler {
     private static final class MavenExtensionFileHandler {
 
         private final MavenExtension extension;
+        private final Supplier<String> extensionDigest;
 
         MavenExtensionFileHandler(MavenExtension extension) {
             this.extension = extension;
+            this.extensionDigest =
+                Suppliers.memoize(() -> unsafeResourceDigest(extension.getEmbeddedJarName()));
         }
 
         /**
@@ -45,11 +54,30 @@ public class MavenExtensionsHandler {
          * on the agent.
          */
         public FilePath copyExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-            FilePath nodePath = rootPath.child(LIB_DIR_PATH).child(extension.getJarName());
-            if (!nodePath.exists()) {
-                copyResourceToNode(nodePath, extension.getJarName());
+            FilePath extensionLocation = getExtensionLocation(rootPath);
+            if (extensionChanged(extensionLocation)) {
+                copyResourceToNode(extensionLocation, extension.getEmbeddedJarName());
             }
-            return nodePath;
+            return extensionLocation;
+        }
+
+        public void deleteExtensionFromAgent(FilePath rootPath) throws IOException, InterruptedException {
+            FilePath extensionLocation = getExtensionLocation(rootPath);
+            if (extensionLocation.exists()) {
+                extensionLocation.delete();
+            }
+        }
+
+        private FilePath getExtensionLocation(FilePath rootPath) {
+            return rootPath.child(LIB_DIR_PATH).child(extension.getTargetJarName());
+        }
+
+        private boolean extensionChanged(FilePath nodePath) throws IOException, InterruptedException {
+            if (!nodePath.exists()) {
+                return true;
+            }
+            String existingFileDigest = nodePath.digest();
+            return !Objects.equals(existingFileDigest, extensionDigest.get());
         }
     }
 
@@ -57,26 +85,32 @@ public class MavenExtensionsHandler {
         GRADLE_ENTERPRISE("gradle-enterprise-maven-extension"),
         CCUD("common-custom-user-data-maven-extension");
 
-        final String name;
-        final Supplier<String> version;
+        private static final String JAR_EXTENSION = ".jar";
+
+        private final String name;
+        private final Supplier<String> version;
 
         MavenExtension(String name) {
             this.name = name;
             this.version = Suppliers.memoize(this::getExtensionVersion);
         }
 
-        public String getJarName() {
-            return name + "-" + version.get() + ".jar";
+        public String getTargetJarName() {
+            return name + JAR_EXTENSION;
+        }
+
+        public String getEmbeddedJarName() {
+            return name + "-" + version.get() + JAR_EXTENSION;
         }
 
         private String getExtensionVersion() {
             try {
                 String resourceName = name + "-version.txt";
-                try (InputStream version = MavenBuildScanInjection.class.getResourceAsStream("/versions/" + resourceName)) {
-                    if (version == null) {
+                try (InputStream is = MavenBuildScanInjection.class.getResourceAsStream("/versions/" + resourceName)) {
+                    if (is == null) {
                         throw new IllegalStateException("Could not find resource: " + resourceName);
                     }
-                    return IOUtils.toString(version, StandardCharsets.UTF_8);
+                    return IOUtils.toString(is, StandardCharsets.UTF_8);
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(e);

@@ -18,11 +18,15 @@ public final class CopyUtil {
         });
     }
 
-    public static String resourceDigest(String resourceName) throws IOException, InterruptedException {
-        return doWithResource(resourceName, Util::getDigestOf);
+    public static String unsafeResourceDigest(String resourceName) {
+        try {
+            return doWithResource(resourceName, Util::getDigestOf);
+        } catch (IOException | InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
-    private static <T> T doWithResource(String resourceName, RemoteFunction<InputStream, T> action) throws IOException, InterruptedException {
+    private static <T> T doWithResource(String resourceName, CheckedFunction<InputStream, T> action) throws IOException, InterruptedException {
         try (InputStream is = CopyUtil.class.getResourceAsStream("/hudson/plugins/gradle/injection/" + resourceName)) {
             if (is == null) {
                 throw new IllegalStateException("Could not find resource: " + resourceName);
@@ -32,7 +36,7 @@ public final class CopyUtil {
     }
 
     @FunctionalInterface
-    private interface RemoteFunction<T, R> {
+    private interface CheckedFunction<T, R> {
 
         R apply(T t) throws IOException, InterruptedException;
     }
