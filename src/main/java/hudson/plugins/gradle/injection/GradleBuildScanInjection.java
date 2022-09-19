@@ -1,11 +1,14 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Node;
 import hudson.remoting.VirtualChannel;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,6 +31,8 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     private static final String INIT_DIR = "init.d";
     private static final String GRADLE_DIR = ".gradle";
     private static final String GRADLE_INIT_FILE = "init-build-scan.gradle";
+
+    private final Supplier<String> initScriptDigest = Suppliers.memoize(GradleBuildScanInjection::unsafeUnitScriptDigest);
 
     @Override
     public String getActivationEnvironmentVariableName() {
@@ -90,7 +95,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
                     LOGGER.fine("init script already exists");
                     return;
                 }
-                // File has changed, remove old version and write a new one
+                // File has changed, remove the old version and copy the new one
                 removeInitScript(channel, initScriptDirectory);
             }
 
@@ -110,10 +115,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     private boolean initScriptNotChanged(FilePath gradleInitScriptFile) throws IOException, InterruptedException {
         String existingFileDigest = gradleInitScriptFile.digest();
 
-        // TODO: Cache
-        String resourceDigest = resourceDigest(RESOURCE_INIT_SCRIPT_GRADLE);
-
-        return resourceDigest.equals(existingFileDigest);
+        return Objects.equals(existingFileDigest, initScriptDigest.get());
     }
 
     private void removeInitScript(VirtualChannel channel, String initScriptDirectory) {
@@ -139,5 +141,13 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     private static boolean isGradleEnterpriseUrlSet(EnvVars envGlobal) {
         return EnvUtil.isSet(envGlobal, JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL);
+    }
+
+    private static String unsafeUnitScriptDigest() {
+        try {
+            return resourceDigest(RESOURCE_INIT_SCRIPT_GRADLE);
+        } catch (IOException | InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
