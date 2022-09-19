@@ -17,6 +17,40 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
     def pomFile = '<?xml version="1.0" encoding="UTF-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>my-pom</artifactId><version>0.1-SNAPSHOT</version><packaging>pom</packaging><name>my-pom</name><description>my-pom</description></project>'
 
+    def 'does not create new EnvironmentVariablesNodeProperty when MAVEN_OPTS changes'() {
+        given:
+        def geExtensionJar =
+            "gradle-enterprise-maven-extension-${getExtensionVersion(MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE.name)}.jar"
+        def ccudExtensionJar =
+            "common-custom-user-data-maven-extension-${getExtensionVersion(MavenExtensionsHandler.MavenExtension.CCUD.name)}.jar"
+
+        when:
+        def slave = createSlaveAndTurnOnInjection()
+
+        then:
+        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        !hasJarInMavenExt(slave, ccudExtensionJar)
+
+        when:
+        turnOnBuildInjectionAndRestart(slave)
+
+        then:
+        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
+
+        hasJarInMavenExt(slave, geExtensionJar)
+        hasJarInMavenExt(slave, ccudExtensionJar)
+
+        when:
+        turnOffBuildInjectionAndRestart(slave)
+
+        then:
+        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
+
+        getMavenOptsFromNodeProperties(slave) == ""
+    }
+
     def 'build scan is published without GE plugin with simple pipeline'() {
         given:
         createSlaveAndTurnOnInjection()
