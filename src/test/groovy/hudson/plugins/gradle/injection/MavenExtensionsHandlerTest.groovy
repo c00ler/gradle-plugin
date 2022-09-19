@@ -40,7 +40,7 @@ class MavenExtensionsHandlerTest extends Specification {
 
         where:
         extensionCopier << [
-            { FilePath filePath -> new MavenExtensionsHandler().copyGradleEnterpriseExtensionToAgent(filePath) },
+            { FilePath filePath -> new MavenExtensionsHandler().copyExtensionToAgent(filePath) },
             { FilePath filePath -> new MavenExtensionsHandler().copyCCUDExtensionToAgent(filePath) }
         ]
     }
@@ -51,7 +51,7 @@ class MavenExtensionsHandlerTest extends Specification {
         def root = new FilePath(folder)
 
         when:
-        def geExtensionFilePath = mavenExtensionsHandler.copyGradleEnterpriseExtensionToAgent(root)
+        def geExtensionFilePath = mavenExtensionsHandler.copyExtensionToAgent(root)
         def ccudExtensionFilePath = mavenExtensionsHandler.copyCCUDExtensionToAgent(root)
 
         then:

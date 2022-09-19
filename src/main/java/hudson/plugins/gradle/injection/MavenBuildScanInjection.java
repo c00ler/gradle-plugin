@@ -4,6 +4,7 @@ import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Computer;
 import hudson.model.Node;
+import hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension;
 import hudson.slaves.EnvironmentVariablesNodeProperty;
 import jenkins.model.Jenkins;
 
@@ -83,11 +84,11 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             LOGGER.info("Injecting Maven extensions " + nodeRootPath);
             List<FilePath> libs = new LinkedList<>();
 
-            libs.add(extensionsHandler.copyGradleEnterpriseExtensionToAgent(nodeRootPath));
+            libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.GRADLE_ENTERPRISE, nodeRootPath));
             if (getGlobalEnvVar(GE_CCUD_VERSION_VAR) != null) {
-                libs.add(extensionsHandler.copyCCUDExtensionToAgent(nodeRootPath));
+                libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CCUD, nodeRootPath));
             } else {
-                extensionsHandler.deleteCCUDExtensionFromAgent(nodeRootPath);
+                extensionsHandler.deleteExtensionFromAgent(MavenExtension.CCUD, nodeRootPath);
             }
 
             String cp = constructExtClasspath(libs, isUnix(node));

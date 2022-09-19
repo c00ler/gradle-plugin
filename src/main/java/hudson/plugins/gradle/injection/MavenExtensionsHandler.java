@@ -8,30 +8,30 @@ import org.apache.commons.io.IOUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 import static hudson.plugins.gradle.injection.CopyUtil.unsafeResourceDigest;
-import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.CCUD;
-import static hudson.plugins.gradle.injection.MavenExtensionsHandler.MavenExtension.GRADLE_ENTERPRISE;
 
 public class MavenExtensionsHandler {
 
     static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
 
-    private final MavenExtensionFileHandler geExtensionHandler = new MavenExtensionFileHandler(GRADLE_ENTERPRISE);
-    private final MavenExtensionFileHandler ccudExtensionHandler = new MavenExtensionFileHandler(CCUD);
+    private final Map<MavenExtension, MavenExtensionFileHandler> fileHandlers =
+        Arrays.stream(MavenExtension.values())
+            .map(MavenExtensionFileHandler::new)
+            .collect(Collectors.toMap(h -> h.extension, Function.identity()));
 
-    public FilePath copyGradleEnterpriseExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        return geExtensionHandler.copyExtensionToAgent(rootPath);
+    public FilePath copyExtensionToAgent(MavenExtension extension, FilePath rootPath) throws IOException, InterruptedException {
+        return fileHandlers.get(extension).copyExtensionToAgent(rootPath);
     }
 
-    public FilePath copyCCUDExtensionToAgent(FilePath rootPath) throws IOException, InterruptedException {
-        return ccudExtensionHandler.copyExtensionToAgent(rootPath);
-    }
-
-    public void deleteCCUDExtensionFromAgent(FilePath rootPath) throws IOException, InterruptedException {
-        ccudExtensionHandler.deleteExtensionFromAgent(rootPath);
+    public void deleteExtensionFromAgent(MavenExtension extension, FilePath rootPath) throws IOException, InterruptedException {
+        fileHandlers.get(extension).deleteExtensionFromAgent(rootPath);
     }
 
     public void deleteAllExtensionsFromAgent(FilePath rootPath) throws IOException, InterruptedException {
