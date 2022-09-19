@@ -32,7 +32,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     private static final String GRADLE_DIR = ".gradle";
     private static final String GRADLE_INIT_FILE = "init-build-scan.gradle";
 
-    private final Supplier<String> initScriptDigest = Suppliers.memoize(GradleBuildScanInjection::unsafeUnitScriptDigest);
+    private final Supplier<String> initScriptDigest = Suppliers.memoize(GradleBuildScanInjection::unsafeInitScriptDigest);
 
     @Override
     public String getActivationEnvironmentVariableName() {
@@ -143,7 +143,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
         return EnvUtil.isSet(envGlobal, JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL);
     }
 
-    private static String unsafeUnitScriptDigest() {
+    private static String unsafeInitScriptDigest() {
         try {
             return resourceDigest(RESOURCE_INIT_SCRIPT_GRADLE);
         } catch (IOException | InterruptedException e) {
