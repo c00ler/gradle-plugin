@@ -17,7 +17,7 @@ class MavenExtensionsHandlerTest extends Specification {
     MavenExtensionsHandler mavenExtensionsHandler = new MavenExtensionsHandler()
 
     @Unroll
-    def "only copies extension if it doesn't exist"() {
+    def "only copies extension if it doesn't exist"(MavenExtension mavenExtension) {
         given:
         def folder = tempFolder.newFolder()
         def root = new FilePath(folder)
@@ -40,7 +40,7 @@ class MavenExtensionsHandlerTest extends Specification {
         secondLastModified == firstLastModified
 
         where:
-        mavenExtension << MavenExtension.values().toList()
+        mavenExtension << MavenExtension.values()
     }
 
     def "removes all files"() {
