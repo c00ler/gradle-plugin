@@ -1,6 +1,5 @@
 package hudson.plugins.gradle.injection;
 
-import com.google.common.base.Splitter;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -15,6 +14,7 @@ import hudson.plugins.gradle.GradleLogger;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,24 +25,20 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
 
     private static final Logger LOGGER = Logger.getLogger(MavenBuildScanInjectionEnvironmentContributor.class.getName());
 
-    private static final Splitter LINE_SPLITTER = Splitter.on(System.lineSeparator()).omitEmptyStrings().trimResults();
-
     @Override
-    public void buildEnvironmentFor(@Nonnull Run r, @Nonnull EnvVars envs, @Nonnull TaskListener listener) throws IOException, InterruptedException {
-        Executor executor = r.getExecutor();
+    public void buildEnvironmentFor(@Nonnull Run run, @Nonnull EnvVars envs, @Nonnull TaskListener listener) throws IOException, InterruptedException {
+        Executor executor = run.getExecutor();
         if (executor == null) {
             LOGGER.log(Level.FINE, "Executor is null");
             return;
         }
 
-        MavenInjectionEnvironmentAction action = r.getAction(MavenInjectionEnvironmentAction.class);
+        MavenInjectionEnvironmentAction action = run.getAction(MavenInjectionEnvironmentAction.class);
         if (action != null) {
             EnvVars mavenInjectionEnvironment = action.getEnvVars();
-            if (mavenInjectionEnvironment == null) {
-                return; // nothing needs to be done
+            if (mavenInjectionEnvironment != null) {
+                envs.putAll(mavenInjectionEnvironment);
             }
-
-            envs.putAll(mavenInjectionEnvironment);
             return;
         }
 
@@ -61,18 +57,15 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
         }
 
         try {
-            FilePath envFile = rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH).child(MavenExtensionsHandler.ENV_FILE);
-            if (!envFile.exists()) {
-                r.addAction(MavenInjectionEnvironmentAction.EMPTY);
+            EnvVars mavenInjectionEnvironment = EnvFileUtil.read(rootPath);
+            if (mavenInjectionEnvironment == null) {
+                run.addAction(MavenInjectionEnvironmentAction.EMPTY);
 
                 LOGGER.log(Level.FINE, "No environment to inject");
                 return;
             }
 
-            String envFileContent = envFile.readToString();
-            EnvVars mavenInjectionEnvironment = parseEnvFile(envFileContent);
-
-            r.addAction(new MavenInjectionEnvironmentAction(mavenInjectionEnvironment));
+            run.addAction(new MavenInjectionEnvironmentAction(mavenInjectionEnvironment));
             envs.putAll(mavenInjectionEnvironment);
 
             GradleLogger gradleLogger = new GradleLogger(listener);
@@ -80,14 +73,6 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to read maven build scan injection .env file", e);
         }
-    }
-
-    private EnvVars parseEnvFile(String envFileContent) {
-        EnvVars envVars = new EnvVars();
-
-        LINE_SPLITTER.split(envFileContent).forEach(envVars::addLine);
-
-        return envVars;
     }
 
     private String asString(EnvVars envVars) {
@@ -108,6 +93,7 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
         }
 
         @CheckForNull
+        @Nullable
         public EnvVars getEnvVars() {
             return envVars;
         }

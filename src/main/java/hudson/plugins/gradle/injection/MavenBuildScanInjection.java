@@ -60,7 +60,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             if (injectionEnabledForNode(node, envGlobal)) {
                 injectMavenExtensions(node, nodeRootPath);
             } else {
-                removeMavenExtensions(node, nodeRootPath);
+                removeMavenExtensions(nodeRootPath);
             }
         } catch (IllegalStateException e) {
             if (injectionEnabledForNode(node, envGlobal)) {
@@ -103,15 +103,14 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GE_URL_VAR)));
             }
 
-            MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.appendIfMissing(node, nodeRootPath, mavenOptsKeyValuePairs);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private void removeMavenExtensions(Node node, FilePath rootPath) {
+    private void removeMavenExtensions(FilePath rootPath) {
         try {
-            MAVEN_OPTS_SETTER.remove(node);
             extensionsHandler.deleteAllExtensionsFromAgent(rootPath);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
