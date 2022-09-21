@@ -9,7 +9,7 @@ import spock.lang.Unroll
 
 class MavenOptsSetterTest extends Specification {
 
-    private static final String MAVEN__OPTS = "MAVEN_OPTS"
+    private static final String MAVEN_OPTS = "MAVEN_OPTS"
 
     Slave node = new DumbSlave("test", "/tmp", null)
 
@@ -18,14 +18,14 @@ class MavenOptsSetterTest extends Specification {
 
     def "doesn't remove MAVEN_OPTS from the first node property"() {
         given:
-        node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(MAVEN__OPTS, "foo")))
+        node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(MAVEN_OPTS, "foo")))
         node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("TEST", "bar")))
 
         when:
         mavenOptsSetter.removeLegacyMavenOptsValueFromNodeProperties(node)
 
         then:
-        node.getNodeProperties().get(EnvironmentVariablesNodeProperty.class).getEnvVars().get(MAVEN__OPTS) == "foo"
+        node.getNodeProperties().get(EnvironmentVariablesNodeProperty.class).getEnvVars().get(MAVEN_OPTS) == "foo"
     }
 
     def "does nothing if no node properties"() {
@@ -51,14 +51,14 @@ class MavenOptsSetterTest extends Specification {
     def "removes MAVEN_OPTS only if it matches the pattern"() {
         given:
         node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("FOO", "bar")))
-        node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(MAVEN__OPTS, mavenOptsValue)))
+        node.getNodeProperties().add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(MAVEN_OPTS, mavenOptsValue)))
 
         when:
         mavenOptsSetter.removeLegacyMavenOptsValueFromNodeProperties(node)
 
         then:
         def last = node.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).last()
-        def result = last.getEnvVars().get(MAVEN__OPTS)
+        def result = last.getEnvVars().get(MAVEN_OPTS)
         if (removed) {
             result == null
         } else {
