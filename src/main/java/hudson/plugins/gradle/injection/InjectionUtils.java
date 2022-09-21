@@ -3,14 +3,16 @@ package hudson.plugins.gradle.injection;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 
-import java.util.HashSet;
 import java.util.Set;
 
 public final class InjectionUtils {
+
+    private static final String COMMA = ",";
+
     private InjectionUtils() {
     }
 
-    static boolean isInjectionEnabledForNode(Set<String> labels, String disabledNodes, String enabledNodes) {
+    public static boolean isInjectionEnabledForNode(Set<String> labels, String disabledNodes, String enabledNodes) {
         return isNotDisabled(labels, disabledNodes) && isEnabled(labels, enabledNodes);
     }
 
@@ -23,12 +25,11 @@ public final class InjectionUtils {
     }
 
     private static boolean isInEnabledNodes(String enabledNodes, Set<String> labels) {
-        return Sets.newHashSet(enabledNodes.split(",")).stream().anyMatch(labels::contains);
+        return Sets.newHashSet(enabledNodes.split(COMMA)).stream().anyMatch(labels::contains);
     }
 
     private static boolean isNotInDisabledNodes(String disabledNodes, Set<String> labels) {
-        HashSet<String> labelsToDisable = Sets.newHashSet(disabledNodes.split(","));
+        Set<String> labelsToDisable = Sets.newHashSet(disabledNodes.split(COMMA));
         return labels.stream().noneMatch(labelsToDisable::contains);
     }
-
 }

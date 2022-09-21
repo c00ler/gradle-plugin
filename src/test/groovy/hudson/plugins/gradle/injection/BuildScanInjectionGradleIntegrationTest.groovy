@@ -234,7 +234,7 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
         initScript.exists()
 
         when:
-        withAdditionalGlobalEnvVars { put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, 'bar,foo') }
+        withAdditionalGlobalEnvVars { put(GradleBuildScanInjection.GRADLE_INJECTION_DISABLED_NODES, 'bar,foo') }
         restartSlave(slave)
 
         then:
@@ -242,8 +242,8 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
 
         when:
         withAdditionalGlobalEnvVars {
-            put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
-            put(GradleBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz,foo')
+            put(GradleBuildScanInjection.GRADLE_INJECTION_DISABLED_NODES, '')
+            put(GradleBuildScanInjection.GRADLE_INJECTION_ENABLED_NODES, 'daz,foo')
         }
         restartSlave(slave)
 
@@ -252,8 +252,8 @@ class BuildScanInjectionGradleIntegrationTest extends BaseInjectionIntegrationTe
 
         when:
         withAdditionalGlobalEnvVars {
-            put(GradleBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
-            put(GradleBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz')
+            put(GradleBuildScanInjection.GRADLE_INJECTION_DISABLED_NODES, '')
+            put(GradleBuildScanInjection.GRADLE_INJECTION_ENABLED_NODES, 'daz')
         }
         restartSlave(slave)
 
