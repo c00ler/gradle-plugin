@@ -27,6 +27,10 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
 
     @Override
     public void buildEnvironmentFor(@Nonnull Run run, @Nonnull EnvVars envs, @Nonnull TaskListener listener) throws IOException, InterruptedException {
+        if (!InjectionUtils.isMavenInjectionEnabledGlobally()) {
+            return;
+        }
+
         Executor executor = run.getExecutor();
         if (executor == null) {
             LOGGER.log(Level.FINE, "Executor is null");

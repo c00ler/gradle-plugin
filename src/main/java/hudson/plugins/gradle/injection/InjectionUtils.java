@@ -2,14 +2,37 @@ package hudson.plugins.gradle.injection;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
+import hudson.EnvVars;
+import hudson.slaves.EnvironmentVariablesNodeProperty;
+import jenkins.model.Jenkins;
 
 import java.util.Set;
+
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_EXTENSION_VERSION;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_INJECTION;
 
 public final class InjectionUtils {
 
     private static final String COMMA = ",";
 
     private InjectionUtils() {
+    }
+
+    public static boolean isMavenInjectionEnabledGlobally() {
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        if (jenkins == null) {
+            return false;
+        }
+
+        EnvironmentVariablesNodeProperty envProperty =
+            jenkins.getGlobalNodeProperties().get(EnvironmentVariablesNodeProperty.class);
+        if (envProperty == null) {
+            return false;
+        }
+
+        EnvVars envVars = envProperty.getEnvVars();
+        return EnvUtil.isSet(envVars, GRADLE_ENTERPRISE_INJECTION)
+            && EnvUtil.isSet(envVars, GRADLE_ENTERPRISE_EXTENSION_VERSION);
     }
 
     public static boolean isInjectionEnabledForNode(Set<String> labels, String disabledNodes, String enabledNodes) {
