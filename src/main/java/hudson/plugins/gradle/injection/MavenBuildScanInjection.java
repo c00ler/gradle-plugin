@@ -30,15 +30,15 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     // Maven system properties passed on the CLI to a Maven build
     private static final String GRADLE_ENTERPRISE_URL_PROPERTY_KEY = "gradle.enterprise.url";
     private static final String GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY = "gradle.enterprise.allowUntrustedServer";
-    // Environment variables set in Jenkins Global configuration
     private static final String GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY = "gradle.scan.uploadInBackground";
     private static final String MAVEN_EXT_CLASS_PATH_PROPERTY_KEY = "maven.ext.class.path";
-    private static final MavenOptsSetter MAVEN_OPTS_SETTER = new MavenOptsSetter(
-        MAVEN_EXT_CLASS_PATH_PROPERTY_KEY,
-        GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY,
-        GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY,
-        GRADLE_ENTERPRISE_URL_PROPERTY_KEY
-    );
+
+    private static final MavenOptsSetter MAVEN_OPTS_SETTER =
+        new MavenOptsSetter(
+            MAVEN_EXT_CLASS_PATH_PROPERTY_KEY,
+            GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY,
+            GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY,
+            GRADLE_ENTERPRISE_URL_PROPERTY_KEY);
 
     private final MavenExtensionsHandler extensionsHandler = new MavenExtensionsHandler();
 
@@ -62,7 +62,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             if (injectionEnabledForNode(node, envGlobal)) {
                 injectMavenExtensions(node, nodeRootPath);
             } else {
-                removeMavenExtensions(nodeRootPath);
+                removeMavenExtensions(node, nodeRootPath);
             }
         } catch (IllegalStateException e) {
             if (injectionEnabledForNode(node, envGlobal)) {
@@ -105,15 +105,17 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GRADLE_ENTERPRISE_URL)));
             }
 
-            MAVEN_OPTS_SETTER.appendIfMissing(node, nodeRootPath, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.writeMavenOptsToFile(node, nodeRootPath, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.removeLegacyMavenOptsValueFromNodeProperties(node);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private void removeMavenExtensions(FilePath rootPath) {
+    private void removeMavenExtensions(Node node, FilePath rootPath) {
         try {
             extensionsHandler.deleteAllExtensionsFromAgent(rootPath);
+            MAVEN_OPTS_SETTER.removeLegacyMavenOptsValueFromNodeProperties(node);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }

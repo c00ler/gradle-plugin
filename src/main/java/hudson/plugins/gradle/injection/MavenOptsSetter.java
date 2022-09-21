@@ -10,15 +10,21 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 class MavenOptsSetter {
 
+    private static final Logger LOGGER = Logger.getLogger(MavenOptsSetter.class.getName());
+
     private static final String SPACE = " ";
     private static final String MAVEN_OPTS_VAR = "MAVEN_OPTS";
+    private static final Pattern MAVEN_OPTS_WITH_GE_EXTENSION =
+        Pattern.compile(".*-Dmaven\\.ext\\.class\\.path=.*gradle-enterprise-maven-extension(-\\d+(\\.\\d+(\\.\\d+)?)?)?\\.jar.*");
 
     private final Set<String> keys;
 
@@ -26,31 +32,37 @@ class MavenOptsSetter {
         this.keys = new HashSet<>(Arrays.asList(keys));
     }
 
-    void appendIfMissing(Node node, FilePath nodeRootPath, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
+    void writeMavenOptsToFile(Node node, FilePath nodeRootPath, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
         String mavenOpts = removeSystemProperties(getMavenOpts(node)) + SPACE + String.join(SPACE, mavenOptsKeyValuePairs);
         EnvFileUtil.write(nodeRootPath, mavenOpts);
+    }
+
+    public void removeLegacyMavenOptsValueFromNodeProperties(Node node) {
+        List<EnvironmentVariablesNodeProperty> all =
+            node.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class);
+        if (all.isEmpty()) {
+            return;
+        }
+
+        EnvironmentVariablesNodeProperty last = Iterables.getLast(all);
+        EnvVars envVars = last.getEnvVars();
+        String mavenOpts = envVars.get(MAVEN_OPTS_VAR);
+        if (mavenOpts == null || mavenOpts.isEmpty()) {
+            return;
+        }
+
+        if (MAVEN_OPTS_WITH_GE_EXTENSION.matcher(mavenOpts).matches()) {
+            envVars.remove(MAVEN_OPTS_VAR);
+            LOGGER.log(
+                Level.INFO,
+                "MAVEN_OPTS with the Gradle Enterprise Extension was removed from the node properties: {0}",
+                mavenOpts);
+        }
     }
 
     private String getMavenOpts(Node node) throws IOException, InterruptedException {
         EnvVars nodeEnvVars = EnvVars.getRemote(node.getChannel());
         return nodeEnvVars.get(MAVEN_OPTS_VAR);
-    }
-
-    private void setMavenOpts(Node node, String mavenOpts) {
-        List<EnvironmentVariablesNodeProperty> all =
-            node.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class);
-
-        if (all.isEmpty()) {
-            node.getNodeProperties().add(
-                new EnvironmentVariablesNodeProperty(
-                    new EnvironmentVariablesNodeProperty.Entry(MAVEN_OPTS_VAR, mavenOpts)));
-            return;
-        }
-
-        EnvironmentVariablesNodeProperty last = Iterables.getLast(all);
-        if (!Objects.equals(mavenOpts, last.getEnvVars().get(MAVEN_OPTS_VAR))) {
-            last.getEnvVars().put(MAVEN_OPTS_VAR, mavenOpts);
-        }
     }
 
     private String removeSystemProperties(String mavenOpts) throws RuntimeException {

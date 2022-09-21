@@ -12,7 +12,6 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition
 import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jvnet.hudson.test.JenkinsRule
 import org.jvnet.hudson.test.ToolInstallations
-import spock.lang.Ignore
 
 class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTest {
 
@@ -125,33 +124,27 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         updatedCcudExtension.digest() == originalCcudExtensionDigest
     }
 
-    @Ignore("Functionality was removed")
-    def 'does not create new EnvironmentVariablesNodeProperty when MAVEN_OPTS changes'() {
-        when:
+    def 'removes legacy MAVEN_OPTS when injection is enabled or disabled'() {
+        given:
         def slave = createSlaveAndTurnOnInjection()
-
-        then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        hasJarInMavenExt(slave, GE_EXTENSION_JAR)
-        !hasJarInMavenExt(slave, CCUD_EXTENSION_JAR)
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("FOO", "bar")))
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/gradle-enterprise-maven-extension-1.0.0.jar")))
 
         when:
-        turnOnBuildInjectionAndRestart(slave)
+        restartSlave(slave)
 
         then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        hasJarInMavenExt(slave, GE_EXTENSION_JAR)
-        hasJarInMavenExt(slave, CCUD_EXTENSION_JAR)
+        !slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).last().getEnvVars().containsKey("MAVEN_OPTS")
 
         when:
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/gradle-enterprise-maven-extension-1.0.0.jar")))
         turnOffBuildInjectionAndRestart(slave)
 
         then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        getMavenOptsFromNodeProperties(slave) == ""
+        !slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).last().getEnvVars().containsKey("MAVEN_OPTS")
     }
 
     def 'build scan is published without GE plugin with simple pipeline'() {
@@ -413,11 +406,6 @@ node {
         def nodeRootPath = slave.getComputer().getNode().getRootPath()
         def envVars = EnvFileUtil.read(nodeRootPath)
         return envVars?.get('MAVEN_OPTS')
-    }
-
-    private static String getMavenOptsFromNodeProperties(DumbSlave slave) {
-        def all = slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class)
-        return all?.last()?.getEnvVars()?.get("MAVEN_OPTS")
     }
 
     private static boolean hasBuildScanPublicationAttempt(String log) {
