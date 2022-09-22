@@ -1,19 +1,21 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.collect.Iterables;
 import hudson.EnvVars;
 import hudson.model.Node;
+import hudson.slaves.EnvironmentVariablesNodeProperty;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 class MavenOptsSetter {
 
-    private static final String SPACE = " ";
     private static final String MAVEN_OPTS_VAR = "MAVEN_OPTS";
 
     private final Set<String> keys;
@@ -22,19 +24,36 @@ class MavenOptsSetter {
         this.keys = new HashSet<>(Arrays.asList(keys));
     }
 
-    public void appendIfMissing(Node node, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
-        String mavenOpts = removeSystemProperties(getMavenOpts(node)) + SPACE + String.join(SPACE, mavenOptsKeyValuePairs);
-        EnvUtil.setEnvVar(node, MAVEN_OPTS_VAR, mavenOpts);
+    void appendIfMissing(Node node, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
+        String mavenOpts = removeSystemProperties(getMavenOpts(node)) + " " + String.join(" ", mavenOptsKeyValuePairs);
+        setMavenOpts(node, mavenOpts);
     }
 
-    public void remove(Node node) throws IOException, InterruptedException {
+    void remove(Node node) throws IOException, InterruptedException {
         String mavenOpts = removeSystemProperties(getMavenOpts(node));
-        EnvUtil.setEnvVar(node, MAVEN_OPTS_VAR, mavenOpts);
+        setMavenOpts(node, mavenOpts);
     }
 
     private String getMavenOpts(Node node) throws IOException, InterruptedException {
         EnvVars nodeEnvVars = EnvVars.getRemote(node.getChannel());
         return nodeEnvVars.get(MAVEN_OPTS_VAR);
+    }
+
+    private void setMavenOpts(Node node, String mavenOpts) {
+        List<EnvironmentVariablesNodeProperty> all =
+            node.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class);
+
+        if (all.isEmpty()) {
+            node.getNodeProperties().add(
+                new EnvironmentVariablesNodeProperty(
+                    new EnvironmentVariablesNodeProperty.Entry(MAVEN_OPTS_VAR, mavenOpts)));
+            return;
+        }
+
+        EnvironmentVariablesNodeProperty last = Iterables.getLast(all);
+        if (!Objects.equals(mavenOpts, last.getEnvVars().get(MAVEN_OPTS_VAR))) {
+            last.getEnvVars().put(MAVEN_OPTS_VAR, mavenOpts);
+        }
     }
 
     private String removeSystemProperties(String mavenOpts) throws RuntimeException {
@@ -48,9 +67,9 @@ class MavenOptsSetter {
      * any of the keys we want to remove.
      */
     private String filterMavenOpts(String mavenOpts) {
-        return Arrays.stream(mavenOpts.split(SPACE))
+        return Arrays.stream(mavenOpts.split(" "))
             .filter(this::shouldBeKept)
-            .collect(Collectors.joining(SPACE))
+            .collect(Collectors.joining(" "))
             .trim();
     }
 
