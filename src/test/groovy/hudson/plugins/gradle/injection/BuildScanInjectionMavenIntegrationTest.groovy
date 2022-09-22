@@ -349,8 +349,9 @@ node {
 
         then:
         def log = JenkinsRule.getLog(build)
+        log =~ /The following environment variables were added to the run: MAVEN_OPTS/
+        // Global value takes precedence
         log =~ /MAVEN_OPTS=.*-Dfoo=bar.*/
-        hasJarInMavenExt(log, GE_EXTENSION_JAR)
         !hasBuildScanPublicationAttempt(log)
     }
 
