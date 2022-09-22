@@ -9,10 +9,7 @@ import hudson.maven.PlexusModuleContributorFactory;
 import hudson.model.AbstractBuild;
 import hudson.model.Computer;
 import hudson.model.Node;
-import hudson.model.TaskListener;
 import hudson.plugins.gradle.injection.MavenBuildScanInjection;
-import hudson.slaves.EnvironmentVariablesNodeProperty;
-import hudson.slaves.NodeProperty;
 import hudson.util.LogTaskListener;
 import org.apache.commons.lang3.StringUtils;
 
@@ -70,21 +67,6 @@ public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleCont
             LOGGER.log(Level.WARNING, "Unexpected exception while checking for maven extension", e);
 
             return EMPTY_CONTRIBUTOR;
-        }
-    }
-
-    private static EnvVars buildAgentEnvironment(Node node) {
-        try {
-            EnvVars envVars = new EnvVars();
-            for (NodeProperty<?> nodeProperty : node.getNodeProperties()) {
-                if (nodeProperty instanceof EnvironmentVariablesNodeProperty) {
-                    // task listener is not used
-                    nodeProperty.buildEnvVars(envVars, TaskListener.NULL);
-                }
-            }
-            return envVars;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 

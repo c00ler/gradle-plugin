@@ -35,6 +35,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     private static final String GE_ALLOW_UNTRUSTED_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER";
     private static final String GE_URL_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
     private static final String GE_CCUD_VERSION_VAR = "JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION";
+    public static final String GE_EXTENSION_CLASSPATH_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_CLASSPATH";
     static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_DISABLED_NODES";
     static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_ENABLED_NODES";
 
@@ -91,9 +92,10 @@ public class MavenBuildScanInjection implements BuildScanInjection {
                 extensionsHandler.deleteExtensionFromAgent(MavenExtension.CCUD, nodeRootPath);
             }
 
-            String cp = constructExtClasspath(libs, isUnix(node));
+            boolean isUnix = isUnix(node);
+
             List<String> mavenOptsKeyValuePairs = new ArrayList<>();
-            mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, cp));
+            mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, constructExtClasspath(libs, isUnix)));
             mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY, "false"));
 
             if (getGlobalEnvVar(GE_ALLOW_UNTRUSTED_VAR) != null) {
@@ -104,6 +106,10 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             }
 
             MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
+
+            // Configuration extension should not be added to MAVEN_OPTS
+            libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CONFIGURATION, nodeRootPath));
+            EnvUtil.setEnvVar(node, GE_EXTENSION_CLASSPATH_VAR, constructExtClasspath(libs, isUnix));
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
@@ -112,17 +118,18 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     private void removeMavenExtensions(Node node, FilePath rootPath) {
         try {
             MAVEN_OPTS_SETTER.remove(node);
+            EnvUtil.removeEnvVar(node, GE_EXTENSION_CLASSPATH_VAR);
             extensionsHandler.deleteAllExtensionsFromAgent(rootPath);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private String constructExtClasspath(List<FilePath> libs, boolean isUnix) throws IOException, InterruptedException {
+    private static String constructExtClasspath(List<FilePath> libs, boolean isUnix) throws IOException, InterruptedException {
         return libs.stream().map(FilePath::getRemote).collect(Collectors.joining(getDelimiter(isUnix)));
     }
 
-    private String getDelimiter(boolean isUnix) {
+    private static String getDelimiter(boolean isUnix) {
         return isUnix ? ":" : ";";
     }
 
