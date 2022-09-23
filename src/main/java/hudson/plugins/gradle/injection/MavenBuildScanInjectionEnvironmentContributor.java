@@ -75,7 +75,7 @@ public class MavenBuildScanInjectionEnvironmentContributor extends EnvironmentCo
             GradleLogger gradleLogger = new GradleLogger(listener);
             gradleLogger.info("The following environment variables were added to the run: " + asString(mavenInjectionEnvironment));
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Unable to read maven build scan injection .env file", e);
+            LOGGER.log(Level.WARNING, "Unable to initialize Gradle Enterprise Maven extension environment variables", e);
         }
     }
 
