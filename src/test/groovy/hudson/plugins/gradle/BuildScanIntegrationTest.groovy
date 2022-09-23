@@ -270,17 +270,19 @@ stage('Final') {
         gradleInstallationRule.addInstallation()
         FreeStyleProject p = j.createFreeStyleProject()
         p.buildersList.add(buildScriptBuilder('1.8'))
-        p.buildersList.add(new Gradle(tasks: 'hello', gradleName: '3.4', switches: '-Dscan --no-daemon'))
-
+        p.buildersList.add(new Gradle(tasks: 'hello', gradleName: '3.4', switches: '--scan --no-daemon'))
 
         when:
         def build = j.buildAndAssertSuccess(p)
 
         then:
         println JenkinsRule.getLog(build)
-
         def json = j.getJSON("${build.url}/api/json?tree=actions[*]")
-        def scanUrls = json.getJSONObject().get('actions').get(1).get('scanUrls')
+
+        def buildScanAction = json.getJSONObject().get('actions').find { it['_class'] == 'hudson.plugins.gradle.BuildScanAction' }
+        buildScanAction != null
+
+        def scanUrls = buildScanAction.get('scanUrls')
         scanUrls.size() == 1
         new URL(scanUrls.get(0))
     }

@@ -15,6 +15,7 @@ import org.jvnet.hudson.test.ToolInstallations
 
 class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTest {
 
+    private static final String ENV_FILE = '.env'
     private static final String GE_EXTENSION_JAR = "gradle-enterprise-maven-extension.jar"
     private static final String CCUD_EXTENSION_JAR = "common-custom-user-data-maven-extension.jar"
 
@@ -27,7 +28,9 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         def extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 2
+        extensionDirectory.list().size() == 3
+
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
 
         def originalGeExtension = extensionDirectory.list().find { it.name == GE_EXTENSION_JAR }
         originalGeExtension != null
@@ -67,7 +70,9 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         def extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 2
+        extensionDirectory.list().size() == 3
+
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
 
         def originalGeExtension = extensionDirectory.list().find { it.name == GE_EXTENSION_JAR }
         originalGeExtension != null
@@ -119,32 +124,27 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         updatedCcudExtension.digest() == originalCcudExtensionDigest
     }
 
-    def 'does not create new EnvironmentVariablesNodeProperty when MAVEN_OPTS changes'() {
-        when:
+    def 'removes legacy MAVEN_OPTS when injection is enabled or disabled'() {
+        given:
         def slave = createSlaveAndTurnOnInjection()
-
-        then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        hasJarInMavenExt(slave, GE_EXTENSION_JAR)
-        !hasJarInMavenExt(slave, CCUD_EXTENSION_JAR)
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("FOO", "bar")))
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/gradle-enterprise-maven-extension-1.0.0.jar")))
 
         when:
-        turnOnBuildInjectionAndRestart(slave)
+        restartSlave(slave)
 
         then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        hasJarInMavenExt(slave, GE_EXTENSION_JAR)
-        hasJarInMavenExt(slave, CCUD_EXTENSION_JAR)
+        !slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).last().getEnvVars().containsKey("MAVEN_OPTS")
 
         when:
+        slave.getNodeProperties()
+            .add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/gradle-enterprise-maven-extension-1.0.0.jar")))
         turnOffBuildInjectionAndRestart(slave)
 
         then:
-        slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).size() == 1
-
-        getMavenOptsFromNodeProperties(slave) == ""
+        !slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class).last().getEnvVars().containsKey("MAVEN_OPTS")
     }
 
     def 'build scan is published without GE plugin with simple pipeline'() {
@@ -170,7 +170,8 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
         then:
         extensionDirectory.exists()
-        extensionDirectory.list().size() == 1
+        extensionDirectory.list().size() == 2
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
         extensionDirectory.list().find { it.name == GE_EXTENSION_JAR } != null
 
         hasJarInMavenExt(slave, GE_EXTENSION_JAR)
@@ -183,14 +184,15 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         then:
         extensionDirectory.list().size() == 0
 
-        getMavenOptsFromNodeProperties(slave) == ""
+        getMavenOptsFromEnvFile(slave) == null
 
         when:
         turnOnBuildInjectionAndRestart(slave)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 2
+        extensionDirectory.list().size() == 3
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
         extensionDirectory.list().find { it.name == GE_EXTENSION_JAR } != null
         extensionDirectory.list().find { it.name == CCUD_EXTENSION_JAR } != null
 
@@ -202,7 +204,8 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 1
+        extensionDirectory.list().size() == 2
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
         extensionDirectory.list().find { it.name == GE_EXTENSION_JAR } != null
 
         hasJarInMavenExt(slave, GE_EXTENSION_JAR)
@@ -213,7 +216,8 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
-        extensionDirectory.list().size() == 2
+        extensionDirectory.list().size() == 3
+        extensionDirectory.list().find { it.name == ENV_FILE } != null
         extensionDirectory.list().find { it.name == GE_EXTENSION_JAR } != null
         extensionDirectory.list().find { it.name == CCUD_EXTENSION_JAR } != null
 
@@ -227,7 +231,7 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
         then:
         extensionDirectory.list().size() == 0
 
-        getMavenOptsFromNodeProperties(slave) == ""
+        getMavenOptsFromEnvFile(slave) == null
     }
 
     def 'injection is enabled and disabled based on node labels'() {
@@ -237,10 +241,12 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
         expect:
         extensionDirectory.exists()
-        extensionDirectory.list().size() == 1
+        extensionDirectory.list().size() == 2
 
         when:
-        withAdditionalGlobalEnvVars { put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, 'bar,foo') }
+        withAdditionalGlobalEnvVars {
+            put(GlobalEnvironmentVariables.MAVEN_INJECTION_DISABLED_NODES, 'bar,foo')
+        }
         restartSlave(slave)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
@@ -249,20 +255,20 @@ class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTes
 
         when:
         withAdditionalGlobalEnvVars {
-            put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
-            put(MavenBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz,foo')
+            put(GlobalEnvironmentVariables.MAVEN_INJECTION_DISABLED_NODES, '')
+            put(GlobalEnvironmentVariables.MAVEN_INJECTION_ENABLED_NODES, 'daz,foo')
         }
         restartSlave(slave)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
 
         then:
         extensionDirectory.exists()
-        extensionDirectory.list().size() == 1
+        extensionDirectory.list().size() == 2
 
         when:
         withAdditionalGlobalEnvVars {
-            put(MavenBuildScanInjection.FEATURE_TOGGLE_DISABLED_NODES, '')
-            put(MavenBuildScanInjection.FEATURE_TOGGLE_ENABLED_NODES, 'daz')
+            put(GlobalEnvironmentVariables.MAVEN_INJECTION_DISABLED_NODES, '')
+            put(GlobalEnvironmentVariables.MAVEN_INJECTION_ENABLED_NODES, 'daz')
         }
         restartSlave(slave)
         extensionDirectory = slave.toComputer().node.rootPath.child(MavenExtensionsHandler.LIB_DIR_PATH)
@@ -333,7 +339,9 @@ node {
         def slave = createSlaveAndTurnOnInjection()
         def pipelineJob = j.createProject(WorkflowJob)
         pipelineJob.setDefinition(new CpsFlowDefinition(simplePipeline(), false))
-        withAdditionalGlobalEnvVars { put('MAVEN_OPTS', '-Dfoo=bar') }
+        withAdditionalGlobalEnvVars {
+            put('MAVEN_OPTS', '-Dfoo=bar')
+        }
         restartSlave(slave)
 
         when:
@@ -341,8 +349,9 @@ node {
 
         then:
         def log = JenkinsRule.getLog(build)
+        log =~ /The following environment variables were added to the run: MAVEN_OPTS/
+        // Global value takes precedence
         log =~ /MAVEN_OPTS=.*-Dfoo=bar.*/
-        !hasJarInMavenExt(log, GE_EXTENSION_JAR)
         !hasBuildScanPublicationAttempt(log)
     }
 
@@ -390,13 +399,14 @@ node {
     }
 
     private static boolean hasJarInMavenExt(DumbSlave slave, String jar) {
-        def mavenOpts = getMavenOptsFromNodeProperties(slave)
+        def mavenOpts = getMavenOptsFromEnvFile(slave)
         return mavenOpts && mavenOpts ==~ /.*-Dmaven\.ext\.class\.path=.*${jar}.*/
     }
 
-    private static String getMavenOptsFromNodeProperties(DumbSlave slave) {
-        def all = slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class)
-        return all?.last()?.getEnvVars()?.get("MAVEN_OPTS")
+    private static String getMavenOptsFromEnvFile(DumbSlave slave) {
+        def nodeRootPath = slave.getComputer().getNode().getRootPath()
+        def envVars = EnvFileUtil.read(nodeRootPath)
+        return envVars?.get('MAVEN_OPTS')
     }
 
     private static boolean hasBuildScanPublicationAttempt(String log) {

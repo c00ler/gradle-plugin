@@ -14,18 +14,16 @@ import java.util.logging.Logger;
 
 import static hudson.plugins.gradle.injection.CopyUtil.copyResourceToNode;
 import static hudson.plugins.gradle.injection.CopyUtil.unsafeResourceDigest;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.BUILD_SCAN_OVERRIDE_GRADLE_HOME;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.BUILD_SCAN_OVERRIDE_HOME;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_PLUGIN_VERSION;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_URL;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_INJECTION_DISABLED_NODES;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_INJECTION_ENABLED_NODES;
 
 public class GradleBuildScanInjection implements BuildScanInjection {
 
     private static final Logger LOGGER = Logger.getLogger(GradleBuildScanInjection.class.getName());
-
-    private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME";
-    private static final String JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME = "JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME";
-    private static final String JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION";
-    private static final String JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
-
-    static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_DISABLED_NODES";
-    static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_GRADLE_INJECTION_ENABLED_NODES";
 
     private static final String RESOURCE_INIT_SCRIPT_GRADLE = "init-script.gradle";
     private static final String INIT_DIR = "init.d";
@@ -36,7 +34,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     @Override
     public String getActivationEnvironmentVariableName() {
-        return JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_PLUGIN_VERSION;
+        return GRADLE_ENTERPRISE_PLUGIN_VERSION;
     }
 
     @Override
@@ -47,8 +45,7 @@ public class GradleBuildScanInjection implements BuildScanInjection {
             if (injectionEnabledForNode(node, envGlobal)) {
                 if (!isGradleEnterpriseUrlSet(envGlobal)) {
                     throw new IllegalStateException(
-                        String.format("Required environment variable '%s' is not set",
-                            JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL));
+                        String.format("Required environment variable '%s' is not set", GRADLE_ENTERPRISE_URL));
                 }
                 copyInitScript(node.getChannel(), initScriptDirectory);
             } else {
@@ -63,17 +60,17 @@ public class GradleBuildScanInjection implements BuildScanInjection {
 
     @Override
     public String getEnabledNodesEnvironmentVariableName() {
-        return FEATURE_TOGGLE_ENABLED_NODES;
+        return GRADLE_INJECTION_ENABLED_NODES;
     }
 
     @Override
     public String getDisabledNodesEnvironmentVariableName() {
-        return FEATURE_TOGGLE_DISABLED_NODES;
+        return GRADLE_INJECTION_DISABLED_NODES;
     }
 
     private static String getInitScriptDirectory(EnvVars envGlobal, EnvVars envComputer) {
-        String gradleHomeOverride = EnvUtil.getEnv(envGlobal, JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_GRADLE_HOME);
-        String homeOverride = EnvUtil.getEnv(envGlobal, JENKINSGRADLEPLUGIN_BUILD_SCAN_OVERRIDE_HOME);
+        String gradleHomeOverride = EnvUtil.getEnv(envGlobal, BUILD_SCAN_OVERRIDE_GRADLE_HOME);
+        String homeOverride = EnvUtil.getEnv(envGlobal, BUILD_SCAN_OVERRIDE_HOME);
         if (gradleHomeOverride != null) {
             return gradleHomeOverride + "/" + INIT_DIR;
         } else if (homeOverride != null) {
@@ -140,6 +137,6 @@ public class GradleBuildScanInjection implements BuildScanInjection {
     }
 
     private static boolean isGradleEnterpriseUrlSet(EnvVars envGlobal) {
-        return EnvUtil.isSet(envGlobal, JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL);
+        return EnvUtil.isSet(envGlobal, GRADLE_ENTERPRISE_URL);
     }
 }

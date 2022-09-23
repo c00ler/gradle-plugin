@@ -16,6 +16,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_CCUD_EXTENSION_VERSION;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_EXTENSION_VERSION;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_URL;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.MAVEN_INJECTION_DISABLED_NODES;
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.MAVEN_INJECTION_ENABLED_NODES;
+
 public class MavenBuildScanInjection implements BuildScanInjection {
 
     private static final Logger LOGGER = Logger.getLogger(MavenBuildScanInjection.class.getName());
@@ -23,26 +30,21 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     // Maven system properties passed on the CLI to a Maven build
     private static final String GRADLE_ENTERPRISE_URL_PROPERTY_KEY = "gradle.enterprise.url";
     private static final String GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY = "gradle.enterprise.allowUntrustedServer";
-    // Environment variables set in Jenkins Global configuration
     private static final String GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY = "gradle.scan.uploadInBackground";
     private static final String MAVEN_EXT_CLASS_PATH_PROPERTY_KEY = "maven.ext.class.path";
-    private static final MavenOptsSetter MAVEN_OPTS_SETTER = new MavenOptsSetter(
-        MAVEN_EXT_CLASS_PATH_PROPERTY_KEY,
-        GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY,
-        GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY,
-        GRADLE_ENTERPRISE_URL_PROPERTY_KEY
-    );
-    private static final String GE_ALLOW_UNTRUSTED_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER";
-    private static final String GE_URL_VAR = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_URL";
-    private static final String GE_CCUD_VERSION_VAR = "JENKINSGRADLEPLUGIN_CCUD_EXTENSION_VERSION";
-    static final String FEATURE_TOGGLE_DISABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_DISABLED_NODES";
-    static final String FEATURE_TOGGLE_ENABLED_NODES = "JENKINSGRADLEPLUGIN_MAVEN_INJECTION_ENABLED_NODES";
+
+    private static final MavenOptsSetter MAVEN_OPTS_SETTER =
+        new MavenOptsSetter(
+            MAVEN_EXT_CLASS_PATH_PROPERTY_KEY,
+            GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY,
+            GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY,
+            GRADLE_ENTERPRISE_URL_PROPERTY_KEY);
 
     private final MavenExtensionsHandler extensionsHandler = new MavenExtensionsHandler();
 
     @Override
     public String getActivationEnvironmentVariableName() {
-        return "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_EXTENSION_VERSION";
+        return GRADLE_ENTERPRISE_EXTENSION_VERSION;
     }
 
     @Override
@@ -71,12 +73,12 @@ public class MavenBuildScanInjection implements BuildScanInjection {
 
     @Override
     public String getEnabledNodesEnvironmentVariableName() {
-        return FEATURE_TOGGLE_ENABLED_NODES;
+        return MAVEN_INJECTION_ENABLED_NODES;
     }
 
     @Override
     public String getDisabledNodesEnvironmentVariableName() {
-        return FEATURE_TOGGLE_DISABLED_NODES;
+        return MAVEN_INJECTION_DISABLED_NODES;
     }
 
     private void injectMavenExtensions(Node node, FilePath nodeRootPath) {
@@ -85,7 +87,7 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             List<FilePath> libs = new LinkedList<>();
 
             libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.GRADLE_ENTERPRISE, nodeRootPath));
-            if (getGlobalEnvVar(GE_CCUD_VERSION_VAR) != null) {
+            if (getGlobalEnvVar(GRADLE_ENTERPRISE_CCUD_EXTENSION_VERSION) != null) {
                 libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CCUD, nodeRootPath));
             } else {
                 extensionsHandler.deleteExtensionFromAgent(MavenExtension.CCUD, nodeRootPath);
@@ -96,14 +98,15 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, cp));
             mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY, "false"));
 
-            if (getGlobalEnvVar(GE_ALLOW_UNTRUSTED_VAR) != null) {
-                mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY, getGlobalEnvVar(GE_ALLOW_UNTRUSTED_VAR)));
+            if (getGlobalEnvVar(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER) != null) {
+                mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY, getGlobalEnvVar(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER)));
             }
-            if (getGlobalEnvVar(GE_URL_VAR) != null) {
-                mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GE_URL_VAR)));
+            if (getGlobalEnvVar(GRADLE_ENTERPRISE_URL) != null) {
+                mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, getGlobalEnvVar(GRADLE_ENTERPRISE_URL)));
             }
 
-            MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.writeMavenOptsToFile(node, nodeRootPath, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.removeLegacyMavenOptsValueFromNodeProperties(node);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }
@@ -111,8 +114,8 @@ public class MavenBuildScanInjection implements BuildScanInjection {
 
     private void removeMavenExtensions(Node node, FilePath rootPath) {
         try {
-            MAVEN_OPTS_SETTER.remove(node);
             extensionsHandler.deleteAllExtensionsFromAgent(rootPath);
+            MAVEN_OPTS_SETTER.removeLegacyMavenOptsValueFromNodeProperties(node);
         } catch (IOException | InterruptedException e) {
             throw new IllegalStateException(e);
         }

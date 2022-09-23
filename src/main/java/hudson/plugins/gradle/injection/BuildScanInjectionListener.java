@@ -16,14 +16,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
+import static hudson.plugins.gradle.injection.GlobalEnvironmentVariables.GRADLE_ENTERPRISE_INJECTION;
 import static java.util.logging.Level.WARNING;
 
 @Extension
 public class BuildScanInjectionListener extends ComputerListener {
 
     private static final Logger LOGGER = Logger.getLogger(BuildScanInjectionListener.class.getName());
-
-    private static final String FEATURE_TOGGLE_INJECTION = "JENKINSGRADLEPLUGIN_GRADLE_ENTERPRISE_INJECTION";
 
     private final List<BuildScanInjection> injections =
         Arrays.asList(new GradleBuildScanInjection(), new MavenBuildScanInjection());
@@ -81,6 +80,6 @@ public class BuildScanInjectionListener extends ComputerListener {
     }
 
     private static boolean injectionEnabled(EnvVars env) {
-        return EnvUtil.isSet(env, FEATURE_TOGGLE_INJECTION);
+        return EnvUtil.isSet(env, GRADLE_ENTERPRISE_INJECTION);
     }
 }

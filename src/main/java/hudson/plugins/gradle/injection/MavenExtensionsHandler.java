@@ -19,7 +19,7 @@ import static hudson.plugins.gradle.injection.CopyUtil.unsafeResourceDigest;
 
 public class MavenExtensionsHandler {
 
-    static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
+    public static final String LIB_DIR_PATH = "jenkins-gradle-plugin/lib";
 
     private final Map<MavenExtension, MavenExtensionFileHandler> fileHandlers =
         Arrays.stream(MavenExtension.values())
