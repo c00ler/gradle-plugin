@@ -55,7 +55,7 @@ class MavenOptsSetter {
             envVars.remove(MAVEN_OPTS_VAR);
             LOGGER.log(
                 Level.INFO,
-                "MAVEN_OPTS with the Gradle Enterprise Extension was removed from the node properties: {0}",
+                "MAVEN_OPTS environment variable has been removed from the node properties: {0}",
                 mavenOpts);
         }
     }
