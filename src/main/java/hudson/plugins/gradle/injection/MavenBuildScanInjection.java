@@ -112,32 +112,32 @@ public class MavenBuildScanInjection implements BuildScanInjection {
             String server = config.getServer();
 
             LOGGER.info("Injecting Maven extensions " + nodeRootPath);
-            List<FilePath> libs = new LinkedList<>();
 
-            libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.GRADLE_ENTERPRISE, nodeRootPath));
+            List<FilePath> extensions = new LinkedList<>();
+            extensions.add(extensionsHandler.copyExtensionToAgent(MavenExtension.GRADLE_ENTERPRISE, nodeRootPath));
             if (config.isInjectCcudExtension()) {
-                libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CCUD, nodeRootPath));
+                extensions.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CCUD, nodeRootPath));
             } else {
                 extensionsHandler.deleteExtensionFromAgent(MavenExtension.CCUD, nodeRootPath);
             }
 
             boolean isUnix = isUnix(node);
 
-            List<String> mavenOptsKeyValuePairs = new ArrayList<>();
-            mavenOptsKeyValuePairs.add(asSystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, constructExtClasspath(libs, isUnix)));
-            mavenOptsKeyValuePairs.add(asSystemProperty(BUILD_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY, "false"));
+            List<SystemProperty> systemProperties = new ArrayList<>();
+            systemProperties.add(new SystemProperty(MAVEN_EXT_CLASS_PATH_PROPERTY_KEY, constructExtClasspath(extensions, isUnix)));
+            systemProperties.add(new SystemProperty(BUILD_SCAN_UPLOAD_IN_BACKGROUND_PROPERTY_KEY, "false"));
 
-            mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, server));
+            systemProperties.add(new SystemProperty(GRADLE_ENTERPRISE_URL_PROPERTY_KEY, server));
             if (config.isAllowUntrusted()) {
-                mavenOptsKeyValuePairs.add(asSystemProperty(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY, "true"));
+                systemProperties.add(new SystemProperty(GRADLE_ENTERPRISE_ALLOW_UNTRUSTED_SERVER_PROPERTY_KEY, "true"));
             }
 
-            MAVEN_OPTS_SETTER.appendIfMissing(node, mavenOptsKeyValuePairs);
+            MAVEN_OPTS_SETTER.appendIfMissing(node, systemProperties);
 
             // Configuration needed to support https://plugins.jenkins.io/maven-plugin/
-            libs.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CONFIGURATION, nodeRootPath));
+            extensions.add(extensionsHandler.copyExtensionToAgent(MavenExtension.CONFIGURATION, nodeRootPath));
 
-            EnvUtil.setEnvVar(node, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH, constructExtClasspath(libs, isUnix));
+            EnvUtil.setEnvVar(node, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH, constructExtClasspath(extensions, isUnix));
             EnvUtil.setEnvVar(node, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL, server);
             if (config.isAllowUntrusted()) {
                 EnvUtil.setEnvVar(node, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER, "true");
@@ -157,8 +157,9 @@ public class MavenBuildScanInjection implements BuildScanInjection {
         }
     }
 
-    private static String constructExtClasspath(List<FilePath> libs, boolean isUnix) throws IOException, InterruptedException {
-        return libs
+    private static String constructExtClasspath(List<FilePath> extensions,
+                                                boolean isUnix) throws IOException, InterruptedException {
+        return extensions
             .stream()
             .map(FilePath::getRemote)
             .collect(Collectors.joining(getDelimiter(isUnix)));
@@ -171,9 +172,5 @@ public class MavenBuildScanInjection implements BuildScanInjection {
     private static boolean isUnix(Node node) {
         Computer computer = node.toComputer();
         return computer == null || Boolean.TRUE.equals(computer.isUnix());
-    }
-
-    private static String asSystemProperty(String sysProp, String value) {
-        return "-D" + sysProp + "=" + value;
     }
 }
