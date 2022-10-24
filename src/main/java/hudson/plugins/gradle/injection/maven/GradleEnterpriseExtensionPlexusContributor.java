@@ -39,7 +39,7 @@ public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleCont
             }
 
             EnvVars environment = build.getEnvironment(new LogTaskListener(LOGGER, Level.INFO));
-            String classpath = environment.get(MavenBuildScanInjection.GE_EXTENSION_CLASSPATH_VAR);
+            String classpath = environment.get(MavenBuildScanInjection.JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH);
             if (StringUtils.isBlank(classpath)) {
                 return EMPTY_CONTRIBUTOR;
             }
@@ -58,7 +58,7 @@ public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleCont
             }
 
             LOGGER.log(
-                Level.INFO,
+                Level.FINE,
                 "Maven extensions to add: {0}",
                 jars.stream().map(FilePath::getRemote).collect(Collectors.joining(", ")));
 
