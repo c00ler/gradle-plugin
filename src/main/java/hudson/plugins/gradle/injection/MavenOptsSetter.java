@@ -1,11 +1,11 @@
 package hudson.plugins.gradle.injection;
 
+import com.google.common.collect.ImmutableSet;
 import hudson.EnvVars;
 import hudson.model.Node;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -13,16 +13,17 @@ import java.util.stream.Collectors;
 
 class MavenOptsSetter {
 
+    private static final String SPACE = " ";
     private static final String MAVEN_OPTS_VAR = "MAVEN_OPTS";
 
     private final Set<String> keys;
 
     public MavenOptsSetter(String... keys) {
-        this.keys = new HashSet<>(Arrays.asList(keys));
+        this.keys = ImmutableSet.copyOf(keys);
     }
 
     void appendIfMissing(Node node, List<String> mavenOptsKeyValuePairs) throws IOException, InterruptedException {
-        String mavenOpts = removeSystemProperties(getMavenOpts(node)) + " " + String.join(" ", mavenOptsKeyValuePairs);
+        String mavenOpts = removeSystemProperties(getMavenOpts(node)) + SPACE + String.join(SPACE, mavenOptsKeyValuePairs);
         EnvUtil.setEnvVar(node, MAVEN_OPTS_VAR, mavenOpts);
     }
 
@@ -47,9 +48,9 @@ class MavenOptsSetter {
      * any of the keys we want to remove.
      */
     private String filterMavenOpts(String mavenOpts) {
-        return Arrays.stream(mavenOpts.split(" "))
+        return Arrays.stream(mavenOpts.split(SPACE))
             .filter(this::shouldBeKept)
-            .collect(Collectors.joining(" "))
+            .collect(Collectors.joining(SPACE))
             .trim();
     }
 

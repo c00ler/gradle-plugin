@@ -37,7 +37,7 @@ class GradleInstallationRule extends TestWatcher {
     }
 
     void addInstallations(String... installationNames) {
-        def installations = installationNames.collect{ name ->
+        def installations = installationNames.collect { name ->
             new GradleInstallation(name, '', [new InstallSourceProperty([new GradleInstaller(gradleVersion)])])
         }
 
