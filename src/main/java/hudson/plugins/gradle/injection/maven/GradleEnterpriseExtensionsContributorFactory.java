@@ -20,9 +20,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Extension(optional = true)
-public class GradleEnterpriseExtensionPlexusContributor extends PlexusModuleContributorFactory {
+public class GradleEnterpriseExtensionsContributorFactory extends PlexusModuleContributorFactory {
 
-    private static final Logger LOGGER = Logger.getLogger(GradleEnterpriseExtensionPlexusContributor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(GradleEnterpriseExtensionsContributorFactory.class.getName());
 
     private static final PlexusModuleContributor EMPTY_CONTRIBUTOR = PlexusModuleContributor.of();
     private static final Splitter UNIX_CLASSPATH_SPLITTER = Splitter.on(':').omitEmptyStrings();

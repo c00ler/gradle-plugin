@@ -18,6 +18,10 @@ import org.jvnet.hudson.test.JenkinsRule
 import org.jvnet.hudson.test.ToolInstallations
 import spock.lang.Unroll
 
+import static hudson.plugins.gradle.injection.MavenBuildScanInjection.JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER
+import static hudson.plugins.gradle.injection.MavenBuildScanInjection.JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH
+import static hudson.plugins.gradle.injection.MavenBuildScanInjection.JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL
+
 class BuildScanInjectionMavenIntegrationTest extends BaseInjectionIntegrationTest {
 
     @Rule
@@ -366,6 +370,59 @@ node {
         !hasBuildScanPublicationAttempt(log)
     }
 
+    def 'set all environment variables for maven plugin integration'() {
+        when:
+        def slave = createSlaveAndTurnOnInjection()
+
+        then:
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL) == 'https://scans.gradle.com'
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER) == null
+        assertMavenConfigClasspathJars(slave, GE_EXTENSION_JAR, CONFIGURATION_EXTENSION_JAR)
+
+        when:
+        withInjectionConfig {
+            allowUntrusted = true
+        }
+        restartSlave(slave)
+
+        then:
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL) == 'https://scans.gradle.com'
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER) == "true"
+        assertMavenConfigClasspathJars(slave, GE_EXTENSION_JAR, CONFIGURATION_EXTENSION_JAR)
+
+        when:
+        withInjectionConfig {
+            allowUntrusted = false
+            injectCcudExtension = true
+        }
+        restartSlave(slave)
+
+        then:
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL) == 'https://scans.gradle.com'
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER) == null
+        assertMavenConfigClasspathJars(slave, GE_EXTENSION_JAR, CCUD_EXTENSION_JAR, CONFIGURATION_EXTENSION_JAR)
+
+        when:
+        turnOffBuildInjectionAndRestart(slave)
+
+        then:
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_SERVER_URL) == null
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_ALLOW_UNTRUSTED_SERVER) == null
+        getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH) == null
+    }
+
+    private static void assertMavenConfigClasspathJars(DumbSlave slave, String... jars) {
+        def classpath = getEnvVarFromNodeProperties(slave, JENKINSGRADLEPLUGIN_MAVEN_PLUGIN_CONFIG_EXT_CLASSPATH)
+        assert classpath != null
+
+        def files = classpath.split(slave.toComputer().isUnix() ? ":" : ";")
+
+        assert files.length == jars.length
+        jars.each {
+            assert files.find { it.endsWith(it) } != null
+        }
+    }
+
     private static String simplePipeline() {
         """
 node {
@@ -416,8 +473,12 @@ node {
     }
 
     private static String getMavenOptsFromNodeProperties(DumbSlave slave) {
+        return getEnvVarFromNodeProperties(slave, "MAVEN_OPTS")
+    }
+
+    private static String getEnvVarFromNodeProperties(DumbSlave slave, String envVar) {
         def all = slave.getNodeProperties().getAll(EnvironmentVariablesNodeProperty.class)
-        return all?.last()?.getEnvVars()?.get("MAVEN_OPTS")
+        return all?.last()?.getEnvVars()?.get(envVar)
     }
 
     private static boolean hasBuildScanPublicationAttempt(String log) {
