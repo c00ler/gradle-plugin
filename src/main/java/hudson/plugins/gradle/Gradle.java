@@ -217,7 +217,7 @@ public class Gradle extends Builder {
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
             throws InterruptedException, IOException {
 
-        GradleLogger gradleLogger = GradleLogger.of(listener);
+        GradleLogger gradleLogger = new GradleLogger(listener);
         gradleLogger.info("Launching build.");
 
         EnvVars env = build.getEnvironment(listener);
